@@ -88,12 +88,12 @@
   <h1>Prompt Prophet Has Awakened</h1>
   <p>Type your deepest desire below. We will reflect your true intent and return the perfect prompt to unlock your goal.</p>
 
-  <form action="https://formsubmit.io/send/jason@drinkmoregood.com" method="POST">
+<form action="https://formsubmit.co/jason@drinkmoregood.com" method="POST">
     
-    <label for="name">Your Name (optional)</label>
+    <label for="name">Your Name (required)</label>
     <input type="text" id="name" name="name">
 
-    <label for="email">Your Email (optional)</label>
+    <label for="email">Your Email (required)</label>
     <input type="email" id="email" name="email">
 
     <label for="intent">What do you seek?</label>
@@ -103,6 +103,9 @@
 
     <!-- Required by formsubmit.io to block spam -->
     <input name="_formsubmit_id" type="text" style="display:none">
+  <input type="hidden" name="_next" value="https://prompt-prophet.vercel.app/thank-you.html">
+<input type="hidden" name="_captcha" value="false">
+
   </form>
 
   <footer>
