@@ -121,6 +121,10 @@ const handlePrompt = async () => {
             <button onClick={() => setStep(3)} style={{ marginLeft: 10 }}>
               Back
             </button>
+            <button onClick={() => setStep(2)} style={{ marginLeft: 10 }}>
+  Refine Again
+</button>
+
             <button onClick={() => window.location.reload()} style={{ marginLeft: 10 }}>
               Make Another
             </button>
