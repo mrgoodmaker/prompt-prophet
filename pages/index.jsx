@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { getPromptCount, incrementPromptCount } from '../utils/promptLimit';
 
 export default function Home() {
   const [step, setStep] = useState(1);
@@ -22,18 +23,25 @@ export default function Home() {
     setLoading(false);
   };
 
-  const handlePrompt = async () => {
-    setLoading(true);
-    const res = await fetch('/api/prompt', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refinedIntent }),
-    });
-    const data = await res.json();
-    setFinalPrompt(data.finalPrompt || 'Prompt generation failed.');
-    setStep(4);
-    setLoading(false);
-  };
+const handlePrompt = async () => {
+  const count = getPromptCount();
+  if (count >= 10) {
+    alert("You've reached your free prompt limit for today (10). Come back tomorrow!");
+    return;
+  }
+
+  setLoading(true);
+  const res = await fetch('/api/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refinedIntent }),
+  });
+  const data = await res.json();
+  setFinalPrompt(data.finalPrompt || 'Prompt generation failed.');
+  setStep(4);
+  incrementPromptCount(); // Track usage
+  setLoading(false);
+};
 
   return (
     <main style={{ maxWidth: 600, margin: 'auto', padding: '2rem' }}>
