@@ -17,7 +17,7 @@ export default function Home() {
       body: JSON.stringify({ name, email, intent }),
     });
     const data = await res.json();
-    setRefinedIntent(data.refinedIntent);
+    setRefinedIntent(data.refinedIntent || 'Something went wrong.');
     setStep(3);
     setLoading(false);
   };
@@ -30,7 +30,7 @@ export default function Home() {
       body: JSON.stringify({ refinedIntent }),
     });
     const data = await res.json();
-    setFinalPrompt(data.finalPrompt);
+    setFinalPrompt(data.finalPrompt || 'Prompt generation failed.');
     setStep(4);
     setLoading(false);
   };
@@ -41,36 +41,53 @@ export default function Home() {
 
       {step === 1 && (
         <>
-          <p>Step 1: Tell us who you are</p>
-          <input placeholder="Your name" value={name} onChange={e => setName(e.target.value)} style={{ width: '100%', marginBottom: 10 }} />
-          <input placeholder="Your email" value={email} onChange={e => setEmail(e.target.value)} style={{ width: '100%', marginBottom: 10 }} />
-          <button onClick={() => setStep(2)}>Next</button>
+          <p>Step 1: Your Details</p>
+          <input
+            placeholder="Your name"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            style={{ width: '100%', marginBottom: 10 }}
+          />
+          <input
+            placeholder="Your email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            style={{ width: '100%', marginBottom: 10 }}
+          />
+          <button onClick={() => setStep(2)} disabled={!name || !email}>
+            Next
+          </button>
         </>
       )}
 
       {step === 2 && (
         <>
-          <p>Step 2: What are you trying to achieve?</p>
+          <p>Step 2: What do you want to achieve?</p>
           <textarea
-            placeholder="Describe your goal or idea..."
+            placeholder="Describe your goal..."
             value={intent}
             onChange={e => setIntent(e.target.value)}
             style={{ width: '100%', height: 100, marginBottom: 10 }}
           />
-          <button onClick={handleRefine} disabled={loading}>
-            {loading ? 'Refining...' : 'Refine My Intent'}
+          <button onClick={() => setStep(1)}>Back</button>{' '}
+          <button onClick={handleRefine} disabled={loading || !intent}>
+            {loading ? 'Refining...' : 'Refine'}
           </button>
         </>
       )}
 
       {step === 3 && (
         <>
-          <p>Step 3: Refined Intent (Layer 1)</p>
-          <textarea readOnly value={refinedIntent} style={{ width: '100%', height: 100 }} />
+          <p>Step 3: Confirm Your Refined Intent</p>
+          <textarea
+            readOnly
+            value={refinedIntent}
+            style={{ width: '100%', height: 100 }}
+          />
           <div style={{ marginTop: 10 }}>
-            <button onClick={() => setStep(2)}>Edit</button>
-            <button onClick={handlePrompt} disabled={loading} style={{ marginLeft: 10 }}>
-              {loading ? 'Generating...' : 'Looks Good → Generate My Prompt'}
+            <button onClick={() => setStep(2)}>Edit</button>{' '}
+            <button onClick={handlePrompt} disabled={loading}>
+              {loading ? 'Generating...' : 'Looks Good → Generate Prompt'}
             </button>
           </div>
         </>
@@ -78,17 +95,39 @@ export default function Home() {
 
       {step === 4 && (
         <>
-          <p>Step 4: Your Perfect Prompt (Layer 2)</p>
-          <textarea readOnly value={finalPrompt} style={{ width: '100%', height: 150 }} />
-          <button
-            onClick={() => {
-              navigator.clipboard.writeText(finalPrompt);
-              alert('Prompt copied to clipboard!');
-            }}
-            style={{ marginTop: 10 }}
-          >
-            Copy to Clipboard
-          </button>
+          <p>Step 4: Your Copy-Ready Prompt</p>
+          <textarea
+            readOnly
+            value={finalPrompt}
+            style={{ width: '100%', height: 150 }}
+          />
+          <div style={{ marginTop: 10 }}>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(finalPrompt);
+                alert('Prompt copied to clipboard!');
+              }}
+            >
+              Copy Prompt
+            </button>
+            <button onClick={() => setStep(3)} style={{ marginLeft: 10 }}>
+              Back
+            </button>
+            <button onClick={() => window.location.reload()} style={{ marginLeft: 10 }}>
+              Make Another
+            </button>
+          </div>
+          <hr style={{ margin: '2rem 0' }} />
+          <p style={{ textAlign: 'center' }}>
+            🚀 Love your prompt?{' '}
+            <a
+              href={`https://twitter.com/intent/tweet?text=Just%20used%20Prompt%20Prophet%20to%20refine%20my%20intent%20and%20generate%20a%20perfect%20AI%20prompt!%20Check%20it%20out:%20https://prompt-prophet.vercel.app`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Share it on Twitter
+            </a>
+          </p>
         </>
       )}
     </main>
