@@ -25,7 +25,8 @@ export default async function handler(req, res) {
       throw new Error(data?.error?.message || 'Airtable error');
     }
 
-    res.status(200).json({ success: true, id: data.id });
+   res.status(200).json({ airtable: data });
+
 
   } catch (err) {
     console.error('❌ Airtable error:', err.message);

@@ -14,11 +14,15 @@ const handleRefine = async () => {
   setLoading(true);
 
   // 1. Log to Airtable
-  await fetch('/api/log', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, email, intent }),
-  });
+ const logRes = await fetch('/api/log', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ name, email, intent }),
+});
+const logData = await logRes.json();
+console.log("Airtable API Response:", logData);
+alert("Airtable response: " + JSON.stringify(logData));
+
 
   // 2. Continue refinement
   const res = await fetch('/api/refine', {
