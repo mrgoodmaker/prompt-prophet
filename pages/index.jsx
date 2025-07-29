@@ -10,18 +10,27 @@ export default function Home() {
   const [finalPrompt, setFinalPrompt] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleRefine = async () => {
-    setLoading(true);
-    const res = await fetch('/api/refine', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, intent }),
-    });
-    const data = await res.json();
-    setRefinedIntent(data.refinedIntent || 'Something went wrong.');
-    setStep(3);
-    setLoading(false);
-  };
+const handleRefine = async () => {
+  setLoading(true);
+
+  // 1. Log to Airtable
+  await fetch('/api/log', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, email, intent }),
+  });
+
+  // 2. Continue refinement
+  const res = await fetch('/api/refine', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, email, intent }),
+  });
+  const data = await res.json();
+  setRefinedIntent(data.refinedIntent || 'Something went wrong.');
+  setStep(3);
+  setLoading(false);
+};
 
 const handlePrompt = async () => {
   const count = getPromptCount();
