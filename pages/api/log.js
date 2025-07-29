@@ -6,27 +6,29 @@ export default async function handler(req, res) {
   const { name, email, intent } = req.body;
   console.log('Logging to Airtable:', { name, email, intent });
 
- try {
-  const airtableRes = await fetch(`https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${encodeURIComponent(process.env.AIRTABLE_TABLE_NAME)}`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${process.env.AIRTABLE_API_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      fields: { Name: name, Email: email, Intent: intent }
-    })
-  });
+  try {
+    const airtableRes = await fetch(`https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${encodeURIComponent(process.env.AIRTABLE_TABLE_NAME)}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.AIRTABLE_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        fields: { Name: name, Email: email, Intent: intent }
+      })
+    });
 
-  const data = await airtableRes.json();
-  console.log('📬 Airtable Response:', data);
+    const data = await airtableRes.json();
+    console.log('📬 Airtable Response:', data);
 
-  if (!airtableRes.ok) {
-    throw new Error(data?.error?.message || 'Airtable error');
+    if (!airtableRes.ok) {
+      throw new Error(data?.error?.message || 'Airtable error');
+    }
+
+    res.status(200).json({ success: true, id: data.id });
+
+  } catch (err) {
+    console.error('❌ Airtable error:', err.message);
+    res.status(500).json({ error: err.message });
   }
-
-  res.status(200).json({ success: true, id: data.id });
-} catch (err) {
-  console.error('❌ Airtable error:', err.message);
-  res.status(500).json({ error: err.message });
 }
