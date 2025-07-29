@@ -34,8 +34,8 @@ const handleRefine = async () => {
 
 const handlePrompt = async () => {
   const count = getPromptCount();
-  if (count >= 10) {
-    alert("You've reached your free prompt limit for today (10). Come back tomorrow!");
+  if (count >= 20) {
+    alert("You've reached your free prompt limit for today (20). Come back tomorrow!");
     return;
   }
 
