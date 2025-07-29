@@ -9,12 +9,24 @@ export default async function handler(req, res) {
     return res.status(400).json({ message: 'Intent is required' });
   }
 
-  // --- Simulated Layer 1 Output ---
-  const refinedIntent = `Here’s a clearer version of your intent:
+  // --- Simulated P.I.E. Layer 1 Output ---
+  const refinedIntent = `
+🧠 P.I.E. Interpretation Engine | LAYER 1: REFINED INTENT
 
+Original Input:
 "${intent.trim()}"
 
-This refined version can now be used to generate your ideal prompt. If this looks right, let’s continue.`;
+Refined Directive:
+"${intent.trim().replace(/^i want to|help me/i, 'Guide me to').replace(/\.$/, '')}."
+
+Clarification Strategy:
+- Transformed general intent into actionable language
+- Reframed request using the Prompt Prophet syntax structure
+- Optimized for LLM comprehension and clarity
+
+If this reads as your true intention, proceed.
+Otherwise, revise and try again.
+`;
 
   res.status(200).json({ refinedIntent });
 }
