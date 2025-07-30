@@ -1,3 +1,7 @@
+// pages/api/refine.js
+
+import { runPIE } from '../../lib/PIEEngine';
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
@@ -9,11 +13,11 @@ export default async function handler(req, res) {
     return res.status(400).json({ message: 'Intent is required' });
   }
 
-  // Extracted directive only (Layer 1 logic stub)
-  const directive = intent
-    .trim()
-    .replace(/^i want to|help me/i, 'Guide me to')
-    .replace(/\.$/, '') + '.';
-
-  res.status(200).json({ refinedIntent: directive });
+  try {
+    const { refinedIntent } = runPIE(intent);
+    res.status(200).json({ refinedIntent });
+  } catch (error) {
+    console.error('❌ PIE Refine Error:', error);
+    res.status(500).json({ message: 'Failed to refine intent' });
+  }
 }
