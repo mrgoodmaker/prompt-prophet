@@ -7,7 +7,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  const { name, email, intent } = req.body;
+  const { intent } = req.body;
 
   if (!intent || intent.trim() === '') {
     return res.status(400).json({ message: 'Intent is required' });
@@ -15,9 +15,9 @@ export default async function handler(req, res) {
 
   try {
     const { refinedIntent } = runPIE(intent);
-    res.status(200).json({ refinedIntent });
+    return res.status(200).json({ refinedIntent });
   } catch (error) {
     console.error('❌ PIE Refine Error:', error);
-    res.status(500).json({ message: 'Failed to refine intent' });
+    return res.status(500).json({ message: 'Failed to refine intent' });
   }
 }
