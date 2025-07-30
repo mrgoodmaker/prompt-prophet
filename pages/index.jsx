@@ -13,29 +13,38 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
 
 const handleRefine = async () => {
-  setLoading(true);
+  try {
+    setLoading(true);
 
-  // 1. Log to Airtable
- const logRes = await fetch('/api/log', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ name, email, intent }),
-});
-const logData = await logRes.json();
-console.log("Airtable API Response:", logData);
-alert("Airtable response: " + JSON.stringify(logData));
+    // 1️⃣ Log intent to Airtable (silent)
+    await fetch('/api/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, intent }),
+    });
 
+    // 2️⃣ Refine Intent using PIE Engine
+    const res = await fetch('/api/refine', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, intent }),
+    });
 
-  // 2. Continue refinement
-  const res = await fetch('/api/refine', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, email, intent }),
-  });
-  const data = await res.json();
-  setRefinedIntent(data.refinedIntent || 'Something went wrong.');
-  setStep(3);
-  setLoading(false);
+    const data = await res.json();
+    console.log("✅ Refine API Response:", data);
+
+    if (res.ok && data.refinedIntent) {
+      setRefinedIntent(data.refinedIntent);
+      setStep(3);
+    } else {
+      alert("⚠️ Could not refine intent. Please try again.");
+    }
+  } catch (error) {
+    console.error("🔥 Error refining intent:", error.message);
+    alert("Something went wrong. Please try again.");
+  } finally {
+    setLoading(false);
+  }
 };
 
 const handlePrompt = async () => {
