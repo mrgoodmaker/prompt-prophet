@@ -17,7 +17,7 @@ export default async function handler(req, res) {
     const { refinedIntent } = runPIE(intent);
     return res.status(200).json({ refinedIntent });
   } catch (error) {
-    console.error('❌ PIE Refine Error:', error);
-    return res.status(500).json({ message: 'Failed to refine intent' });
-  }
+  console.error('❌ PIE Refine Error:', error.response?.data || error.message);
+  res.status(500).json({ message: error.message });
+}
 }
