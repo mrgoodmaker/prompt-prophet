@@ -4,7 +4,6 @@ export default async function handler(req, res) {
   }
 
   const { name, email, intent } = req.body;
-  console.log('Logging to Airtable:', { name, email, intent });
 
   try {
     const airtableRes = await fetch(`https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${encodeURIComponent(process.env.AIRTABLE_TABLE_NAME)}`, {
