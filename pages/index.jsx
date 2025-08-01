@@ -1,6 +1,4 @@
-// trigger redeploy
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { getPromptCount, incrementPromptCount } from '../utils/promptLimit';
 
 export default function Home() {
@@ -11,65 +9,83 @@ export default function Home() {
   const [refinedIntent, setRefinedIntent] = useState('');
   const [finalPrompt, setFinalPrompt] = useState('');
   const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState(null); // 🔥 Toast state
 
-const handleRefine = async () => {
-  try {
+  // Auto-hide toast after 3s
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
+  const showToast = (message) => {
+    setToast(message);
+  };
+
+  const handleRefine = async () => {
     setLoading(true);
 
-    // 1️⃣ Log intent to Airtable (silent)
-    await fetch('/api/log', {
+    // 1. Log to Airtable
+    const logRes = await fetch('/api/log', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, email, intent }),
     });
+    const logData = await logRes.json();
+    showToast("✅ Your intent was logged successfully!");
 
-    // 2️⃣ Refine Intent using PIE Engine
+    // 2. Continue refinement
     const res = await fetch('/api/refine', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, email, intent }),
     });
-
     const data = await res.json();
-    console.log("✅ Refine API Response:", data);
-
-    if (res.ok && data.refinedIntent) {
-      setRefinedIntent(data.refinedIntent);
-      setStep(3);
-    } else {
-      alert("⚠️ Could not refine intent. Please try again.");
-    }
-  } catch (error) {
-    console.error("🔥 Error refining intent:", error.message);
-    alert("Something went wrong. Please try again.");
-  } finally {
+    setRefinedIntent(data.refinedIntent || 'Something went wrong.');
+    setStep(3);
     setLoading(false);
-  }
-};
+  };
 
-const handlePrompt = async () => {
-  const count = getPromptCount();
-  if (count >= 20) {
-    alert("You've reached your free prompt limit for today (20). Come back tomorrow!");
-    return;
-  }
+  const handlePrompt = async () => {
+    const count = getPromptCount();
+    if (count >= 10) {
+      showToast("⚠️ Free prompt limit reached (10/day). Upgrade for unlimited.");
+      return;
+    }
 
-  setLoading(true);
-  const res = await fetch('/api/prompt', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refinedIntent }),
-  });
-  const data = await res.json();
-  setFinalPrompt(data.finalPrompt || 'Prompt generation failed.');
-  setStep(4);
-  incrementPromptCount(); // Track usage
-  setLoading(false);
-};
+    setLoading(true);
+    const res = await fetch('/api/prompt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refinedIntent }),
+    });
+    const data = await res.json();
+    setFinalPrompt(data.finalPrompt || 'Prompt generation failed.');
+    setStep(4);
+    incrementPromptCount();
+    setLoading(false);
+  };
 
   return (
     <main style={{ maxWidth: 600, margin: 'auto', padding: '2rem' }}>
       <h1>🔮 Prompt Prophet</h1>
+
+      {/* Toast Notification */}
+      {toast && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          backgroundColor: '#333',
+          color: '#fff',
+          padding: '10px 15px',
+          borderRadius: '5px',
+          zIndex: 9999
+        }}>
+          {toast}
+        </div>
+      )}
 
       {step === 1 && (
         <>
@@ -137,7 +153,7 @@ const handlePrompt = async () => {
             <button
               onClick={() => {
                 navigator.clipboard.writeText(finalPrompt);
-                alert('Prompt copied to clipboard!');
+                showToast('📋 Prompt copied to clipboard!');
               }}
             >
               Copy Prompt
@@ -146,24 +162,12 @@ const handlePrompt = async () => {
               Back
             </button>
             <button onClick={() => setStep(2)} style={{ marginLeft: 10 }}>
-  Refine Again
-</button>
-
+              Refine Again
+            </button>
             <button onClick={() => window.location.reload()} style={{ marginLeft: 10 }}>
               Make Another
             </button>
           </div>
-          <hr style={{ margin: '2rem 0' }} />
-          <p style={{ textAlign: 'center' }}>
-            🚀 Love your prompt?{' '}
-            <a
-              href={`https://twitter.com/intent/tweet?text=Just%20used%20Prompt%20Prophet%20to%20refine%20my%20intent%20and%20generate%20a%20perfect%20AI%20prompt!%20Check%20it%20out:%20https://prompt-prophet.vercel.app`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Share it on Twitter
-            </a>
-          </p>
         </>
       )}
     </main>
