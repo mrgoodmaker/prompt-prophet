@@ -1,5 +1,4 @@
 // pages/api/prompt.js
-
 import { runPIE } from '../../lib/PIEEngine';
 
 export default async function handler(req, res) {
@@ -14,10 +13,21 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { finalPrompt } = runPIE(refinedIntent);
-    return res.status(200).json({ finalPrompt });
+    // Use PIE to generate final prompt
+    const { finalPrompt } = await runPIE(refinedIntent);
+
+    if (!finalPrompt || finalPrompt.length < 15) {
+      console.error("⚠️ PIE returned empty or weak final prompt");
+      return res.status(500).json({ message: 'Prompt generation failed - empty response from PIE.' });
+    }
+
+    // ✅ Log success for debugging
+    console.log("✅ PIE Final Prompt:", finalPrompt);
+
+    res.status(200).json({ finalPrompt });
+
   } catch (error) {
-    console.error('❌ PIE Prompt Error:', error);
-    return res.status(500).json({ message: 'Failed to generate prompt' });
+    console.error('❌ PIE Prompt API Error:', error.response?.data || error.message || error);
+    res.status(500).json({ message: 'Prompt generation failed due to internal error.' });
   }
 }
