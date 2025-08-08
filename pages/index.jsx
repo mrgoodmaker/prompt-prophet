@@ -42,7 +42,7 @@ export default function Home() {
       body: JSON.stringify({ name, email, intent }),
     });
     const data = await res.json();
-    setRefinedIntent(data.refinedIntent || 'Something went wrong.');
+   setRefinedIntent(data.refinedIntent ?? 'Something went wrong.');
     setStep(3);
     setLoading(false);
   };
