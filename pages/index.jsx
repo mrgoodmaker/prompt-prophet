@@ -30,7 +30,7 @@ export default function Home() {
     const logRes = await fetch('/api/log', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, intent }),
+body: JSON.stringify({ intent }),
     });
     const logData = await logRes.json();
     showToast("✅ Your intent was logged successfully!");
