@@ -3,6 +3,7 @@ import { useState } from 'react';
 export default function Home() {
   const [intent, setIntent] = useState('');
   const [refinedIntent, setRefinedIntent] = useState('');
+  const [finalPrompt, setFinalPrompt] = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -12,6 +13,7 @@ export default function Home() {
     setLoading(true);
     setError('');
     setRefinedIntent('');
+    setFinalPrompt('');
     setShowConfirm(false);
 
     try {
@@ -38,14 +40,37 @@ export default function Home() {
     }
   };
 
-  const handleConfirm = () => {
-    alert(`You confirmed: ${refinedIntent}`);
-    // Next: Trigger Layer 2 prompt generation here
+  const handleConfirm = async () => {
+    setLoading(true);
+    setError('');
+    setFinalPrompt('');
+
+    try {
+      const res = await fetch('/api/confirm', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refinedIntent }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Confirmation failed.');
+      }
+
+      setFinalPrompt(data.finalPrompt);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div style={{ padding: '2rem' }}>
-      <h1>Prompt Prophet</h1>
+    <div style={{ padding: '2rem', fontFamily: 'Arial, sans-serif' }}>
+      <h1>Prompt Prophet — Test Build</h1>
 
       <form onSubmit={handleSubmit}>
         <label>
@@ -55,7 +80,12 @@ export default function Home() {
             type="text"
             value={intent}
             onChange={(e) => setIntent(e.target.value)}
-            style={{ width: '100%', padding: '0.5rem', marginTop: '0.5rem' }}
+            style={{
+              width: '100%',
+              padding: '0.5rem',
+              marginTop: '0.5rem',
+              fontSize: '16px',
+            }}
           />
         </label>
         <br /><br />
@@ -70,10 +100,33 @@ export default function Home() {
           <p>{refinedIntent}</p>
 
           {showConfirm && (
-            <button onClick={handleConfirm} style={{ marginTop: '1rem' }}>
-              Confirm
+            <button onClick={handleConfirm} disabled={loading} style={{ marginTop: '1rem' }}>
+              {loading ? 'Generating Final Prompt...' : 'Confirm'}
             </button>
           )}
+        </div>
+      )}
+
+      {finalPrompt && (
+        <div style={{ marginTop: '2rem' }}>
+          <h3>Final Master Prompt:</h3>
+          <pre
+            style={{
+              background: '#f4f4f4',
+              padding: '1rem',
+              borderRadius: '5px',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+            }}
+          >
+            {finalPrompt}
+          </pre>
+          <button
+            onClick={() => navigator.clipboard.writeText(finalPrompt)}
+            style={{ marginTop: '1rem' }}
+          >
+            Copy to Clipboard
+          </button>
         </div>
       )}
 
