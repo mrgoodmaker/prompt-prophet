@@ -1,4 +1,5 @@
 // /pages/api/refine.js
+import { runPIE } from '../../lib/PIEEngine';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -8,12 +9,11 @@ export default async function handler(req, res) {
   const { intent } = req.body;
 
   try {
-    // Replace this with your actual PIE logic
-    const refinedIntent = `Let’s upgrade this intent: "${intent}" into a power move.`; 
-    
-    res.status(200).json({ refinedIntent });
+    const result = await runPIE(intent);
+    const refinedIntent = result.refinedIntent || 'Refinement failed.';
+    return res.status(200).json({ refinedIntent });
   } catch (error) {
     console.error('Refine error:', error);
-    res.status(500).json({ error: 'Refinement failed' });
+    return res.status(500).json({ error: 'Refinement failed.' });
   }
 }
