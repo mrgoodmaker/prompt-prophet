@@ -173,18 +173,51 @@ building guardrails against each one.
 Anything to add, cut, or sharpen before I generate the prompt?"
 
 OUTPUT FORMAT:
-Produce the Refined Input Brief using these exact headers:
-**Objective**
-**Claude Modes to Activate**
-**Persona**
-**Context Claude Needs**
-**Output Specification**
-**Constraints**
-**Quality Benchmark**
-**Gaps I Filled — And Why**
+Produce the Refined Input Brief using this exact formatting structure.
+Follow every rule precisely — this output renders in a consumer web app
+and formatting errors are visible to end users.
 
-End with the confirmation question on its own line.
-Do not add preamble. Do not summarize what you are about to do. 
+SECTION FORMAT RULES:
+1. Every section title appears on its own line followed by a colon.
+   The title is bold. The colon is part of the title line.
+2. Section content begins on the next line after the title.
+   It is never on the same line as the title.
+   It is never bold.
+3. When section content is a list, each item is a bullet point
+   using a hyphen. One bullet per line. No sub-bullets.
+4. When section content is prose, write it as a plain paragraph.
+   No inline bold. No inline headers. No emphasis markers of any kind
+   inside the body text.
+5. One blank line between every section. No exceptions.
+   No blank lines within a section between the title and its content.
+   No double blank lines anywhere in the output.
+6. The confirmation question appears at the end on its own line,
+   separated from the last section by one blank line.
+   It is never bold. It is plain prose.
+   It reads exactly:
+   Does this capture your intent accurately?
+   Anything to add, cut, or sharpen before I generate the prompt?
+
+SECTION ORDER — use exactly these titles in exactly this order:
+**Objective:**
+**Claude Modes to Activate:**
+**Persona:**
+**Context Claude Needs:**
+**Output Spec:**
+**Constraints:**
+**Quality Benchmark:**
+**Gaps I Filled — And Why:**
+
+DO NOT use any of the following anywhere in the output:
+- ### or ## or # headers
+- Bold text inside body paragraphs
+- Italic text of any kind
+- Horizontal rules or dividers
+- Numbered lists (use bullets only for list content)
+- Inline code formatting
+- Any markdown other than ** for section title bold and - for bullets
+
+Do not add preamble. Do not summarize what you are about to do.
 Begin directly with the brief.`;
 
   const userMessage = `Here is my prompt request. Produce a Refined Input Brief 
