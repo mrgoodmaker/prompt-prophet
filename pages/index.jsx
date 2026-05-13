@@ -199,7 +199,7 @@ export default function Home() {
                   Prophet has refined what you described. Read this carefully — confirm it's right before we go deeper.
                 </p>
                 <div style={styles.refinedBox}>
-                  <p style={styles.refinedText}>{refinedIntent}</p>
+                  <p style={styles.refinedText}>{refinedIntent || 'No content returned'}</p>
                 </div>
                 <div style={styles.confirmActions}>
                   <button style={styles.btnPrimary} onClick={handleConfirm} disabled={loading}>
