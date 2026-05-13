@@ -199,8 +199,15 @@ setSeedPrompt(data.result);
                   Prophet has refined what you described. Read this carefully — confirm it's right before we go deeper.
                 </p>
                 <div style={styles.refinedBox}>
-                  <p style={styles.refinedText}>{refinedIntent || 'No content returned'}</p>
-                </div>
+  {refinedIntent.split('\n').map((line, i) => {
+    if (line.trim() === '') return <br key={i} />;
+    const boldLine = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    if (line.startsWith('- ')) {
+return <li key={i} style={{fontSize:'14px',color:'#1A1A18',lineHeight:'1.6',marginLeft:'16px',marginBottom:'4px',listStyleType:'disc'}}>{line.slice(2)}</li>;
+    }
+return <p key={i} style={line.startsWith('**') ? {fontSize:'13px',fontWeight:'600',color:'#B87333',letterSpacing:'0.05em',marginBottom:'4px',marginTop:'16px'} : {fontSize:'15px',color:'#1A1A18',lineHeight:'1.65',marginBottom:'6px'}} dangerouslySetInnerHTML={{__html: boldLine}} />;
+  })}
+</div>
                 <div style={styles.confirmActions}>
                   <button style={styles.btnPrimary} onClick={handleConfirm} disabled={loading}>
                     {loading ? 'Building your prompt...' : 'Yes, that\'s it — Generate My Prompt →'}
