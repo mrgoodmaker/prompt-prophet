@@ -26,10 +26,10 @@ export default function Home() {
       const res = await fetch('/api/refine', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stage: 'refine', userInput }),
+        body: JSON.stringify({ layer: 1, userInput }),
       });
-      const data = await res.json();
-      setRefinedIntent(data.refinedIntent);
+    const data = await res.json();
+    setRefinedIntent(data.result);
       setStep('confirm');
     } catch (e) {
       alert('Something went wrong. Please try again.');
@@ -44,10 +44,10 @@ export default function Home() {
       const res = await fetch('/api/refine', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stage: 'generate', refinedIntent }),
+        body: JSON.stringify({ layer: 2, userInput, refinedBrief: refinedIntent }),
       });
       const data = await res.json();
-      setSeedPrompt(data.seedPrompt);
+setSeedPrompt(data.result);
       const newCount = promptCount + 1;
       setPromptCount(newCount);
       if (typeof window !== 'undefined') {
