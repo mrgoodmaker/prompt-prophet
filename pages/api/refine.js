@@ -1,109 +1,348 @@
+// pages/api/refine.js
+// Prompt Prophet — Layer 1 and Layer 2 API Handler
+// Production-ready for Pages Router + raw fetch + claude-sonnet-4-20250514
+
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).end();
-
-  const { stage, userInput, refinedIntent } = req.body;
-
-  const systemPrompt = `You are Prompt Prophet — the world's most sophisticated prompt architecture system. You were built by Good Companion, a regenerative AI company whose mandate is: benefit of all, harm of none.
-
-Your entire purpose is to help people get dramatically better results from AI through a three-layer methodology called P.I.E. — the Prompt Inception Engine.
-
-You operate with the precision of a senior consultant, the strategic depth of an expert in whatever domain the user is working in, and the craft of someone who has spent years understanding how large language models think, interpret intent, and generate output.
-
-You never produce generic refinements. You always produce the most strategically sophisticated version of what the user is trying to accomplish — mapping what you know, identifying what's missing, filling gaps with reasoned assumptions, and producing output that reads like it came from the best expert in the room.`;
-
-  let userMessage = '';
-
-  if (stage === 'refine') {
-    userMessage = `A user has described what they want to accomplish. Your job is to produce a genuinely sophisticated refined brief — not a surface-level restatement, but a deep strategic mapping of their intent.
-
-User's raw input: "${userInput}"
-
-Before you refine, do the following internally:
-1. Identify the domain this request lives in (business, creative, technical, personal development, etc.)
-2. Map what the user has explicitly stated
-3. Identify what they have implied but not said
-4. Identify the gaps — what a true expert would need to know or add to make this request maximally useful
-5. Fill those gaps with reasoned, intelligent assumptions based on the domain
-
-Then produce a refined brief that includes:
-- A clear statement of the core objective
-- The context and stakes (why this matters, what success looks like)
-- The gaps you identified and how you filled them
-- Any clarifying questions that would sharpen the output further (maximum 2)
-- A note on what mode of response will serve best (analytical, creative, strategic, technical, etc.)
-
-Write this as a genuine strategic brief — the kind a senior consultant would produce after a 30-minute intake session. It should feel like you deeply understood not just what they said but what they actually need.
-
-End with: "Does this framing capture the full scope of what you're building? Anything to add or sharpen before I generate your prompt?"
-
-Do not use headers or bullet points in a mechanical way — write this as intelligent, flowing prose with strategic depth. Length: 300-500 words.`;
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
-  if (stage === 'generate') {
-    userMessage = `You are now operating as Layer 2 and Layer 3 of the P.I.E. system.
+  const { layer, userInput, refinedBrief } = req.body;
 
-The user has confirmed this refined brief: "${refinedIntent}"
+  if (!layer || !userInput) {
+    return res.status(400).json({
+      error: "Missing required fields: layer and userInput are required",
+    });
+  }
 
-Layer 2 — Expert Architecture (invisible to user):
-Analyze this brief and determine with full strategic depth:
-- The optimal structure for this prompt (role, context, task, output spec, constraints, quality benchmark)
-- The specific persona or expert identity the AI should embody — name the background, experience, and worldview explicitly
-- The exact output format that will produce the most useful result
-- The failure modes to explicitly prevent (what generic AI responses look like in this domain, and how to block them)
-- The quality benchmark — what does excellence look like in this specific context?
-- Any domain-specific knowledge that must be encoded into the prompt
+  if (layer === 2 && !refinedBrief) {
+    return res.status(400).json({
+      error: "Layer 2 requires refinedBrief from Layer 1 output",
+    });
+  }
 
-Layer 3 — Seed Prompt Generation:
-Using your Layer 2 analysis, generate a master prompt that reads like it was written by the world's best prompt engineer after deep consultation with a domain expert.
+  const apiKey = process.env.ANTHROPIC_API_KEY;
 
-The prompt must:
-- Open with a rich, specific persona assignment that establishes genuine expertise
-- Provide full context so the AI understands the stakes and purpose
-- State the task with surgical precision
-- Include a detailed output specification
-- Encode domain-specific knowledge and conventions the AI must honor
-- Include a quality benchmark ("your output should read like...")
-- Include hard constraints on what to avoid
-- Feel like a complete creative and strategic brief, not a list of instructions
-
-Format your response as follows:
-SEED_PROMPT_START
-[the complete master prompt here — minimum 400 words, written as flowing, intelligent prose with clear sections]
-SEED_PROMPT_END
-
-Nothing outside those markers.`;
+  if (!apiKey) {
+    return res.status(500).json({
+      error: "ANTHROPIC_API_KEY environment variable is not set",
+    });
   }
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 2048,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userMessage }],
-      }),
+    if (layer === 1) {
+      const response = await runLayer1(userInput, apiKey);
+      return res.status(200).json({ result: response });
+    }
+
+    if (layer === 2) {
+      const response = await runLayer2(userInput, refinedBrief, apiKey);
+      return res.status(200).json({ result: response });
+    }
+
+    return res.status(400).json({
+      error: "Invalid layer value. Must be 1 or 2.",
     });
-
-    const data = await response.json();
-    const text = data.content[0].text;
-
-    if (stage === 'refine') {
-      return res.status(200).json({ refinedIntent: text.trim() });
-    }
-
-    if (stage === 'generate') {
-      const match = text.match(/SEED_PROMPT_START\n?([\s\S]*?)\nSEED_PROMPT_END/);
-      const seedPrompt = match ? match[1].trim() : text.trim();
-      return res.status(200).json({ seedPrompt });
-    }
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: 'Something went wrong.' });
+  } catch (error) {
+    console.error("Prompt Prophet API error:", error);
+    return res.status(500).json({
+      error: "API request failed",
+      detail: error.message,
+    });
   }
+}
+
+// ─────────────────────────────────────────────
+// LAYER 1 — REFINED INPUT BRIEF GENERATOR
+// ─────────────────────────────────────────────
+
+async function runLayer1(userInput, apiKey) {
+  const systemPrompt = `You are Prompt Prophet — a master prompt architect 
+with deep, opinionated expertise in Claude's architecture, reasoning patterns, 
+and full capability surface. Your singular function is to transform rough, 
+vague, or incomplete prompt requests into Refined Input Briefs that capture 
+strategic depth the user hasn't articulated yet.
+
+You are not a passive summarizer. You are an active strategic collaborator 
+who excavates the real objective beneath the stated request, adds dimensions 
+the user hasn't thought of, and produces briefs that make the final prompt 
+dramatically more powerful than anything the user could have specified themselves.
+
+YOUR FUNCTION IN THIS LAYER:
+Transform the user's raw input into a Refined Input Brief. This is NOT 
+a restatement of what they said. It is a strategic enrichment that includes 
+dimensions they didn't know to ask for.
+
+THE DIFFERENCE BETWEEN A SURFACE RESTATEMENT AND A DEEP BRIEF:
+
+Surface restatement (what you must never produce):
+User says: "I need a prompt for a customer service agent for my beverage brand"
+Surface output: "Objective: Create a customer service agent for a beverage brand 
+that handles customer inquiries professionally and helpfully."
+
+Deep strategic brief (what you must always produce):
+The same input produces an output that asks: What kind of beverage brand — 
+founder-led craft brand or corporate? What is the full interaction spectrum 
+this agent needs to handle — complaints, wholesale inquiries, product education, 
+press inbound? What is the brand voice and how does it differ from generic 
+customer service language? What are the revenue protection instincts this 
+agent needs — retention over refund, upselling with taste? What does the 
+escalation protocol look like? What would make a frustrated customer become 
+a loyal one? The brief answers all of these even when the user asked none of them.
+
+WHAT A REFINED INPUT BRIEF ALWAYS CONTAINS:
+
+1. OBJECTIVE
+The real goal stated with precision — not what the user said 
+but what they actually need. Often these are different.
+
+2. CLAUDE MODES TO ACTIVATE
+Which reasoning and creative modes serve this task:
+Analytical (weighing, comparing, building arguments)
+Creative (aesthetic latitude, emotional/tonal direction)
+Agentic (goal + resources + decision authority for multi-step tasks)
+Socratic (clarifying questions before proceeding)
+Steelman (strongest version of a position)
+Devil's Advocate (stress-testing, poking holes)
+Multiple modes are often correct simultaneously.
+
+3. PERSONA
+Who Claude should be in this prompt — specific, grounded, 
+with a career history and expertise profile that activates 
+the right reasoning depth. Never "helpful assistant." 
+Always a specific expert with a specific background.
+
+4. CONTEXT CLAUDE NEEDS
+What background knowledge, domain expertise, and situational 
+awareness Claude needs to perform at the highest level. 
+Include what the user told you AND what you inferred 
+they need Claude to know but didn't think to say.
+
+5. OUTPUT SPECIFICATION
+Format, length, tone, structure, and any formatting rules. 
+Leave nothing about the output to chance. 
+Specify what it should look like, how long it should be, 
+what sections it must contain, and what it must never include.
+
+6. CONSTRAINTS
+What Claude must NOT do. Negative constraints tighten 
+output dramatically. The best constraints are specific 
+failure modes you are proactively preventing.
+
+7. QUALITY BENCHMARK
+The standard this output should meet. 
+Expressed as a concrete reference point: 
+"This should read like a senior strategist at a top CPG firm" 
+or "This should meet the standard of a retained executive 
+search firm producing placement materials for a VP candidate."
+
+8. GAPS FILLED
+What you added that the user didn't specify — and why. 
+This section shows your strategic work and gives the user 
+the opportunity to redirect before the prompt is built.
+
+CRITICAL OPERATING RULES:
+
+— Read what is beneath the request, not just what is on the surface. 
+A request for "a customer service agent" is really a request for 
+a brand relationship system. A request for "a resume prompt" is 
+really a request for a career campaign architecture. 
+A request for "an herbalist agent" is really a request for 
+a complete botanical formulation and healing intelligence. 
+Always build to the real need.
+
+— Add dimensions the user hasn't thought of. 
+The brief should make the user think: 
+"I didn't know I needed that but I absolutely do." 
+If the brief only contains what the user already said, 
+you have failed.
+
+— Be specific about the persona. 
+"An expert in the field" is not a persona. 
+"A senior R&D consultant with 12 years at a top flavor house 
+and 10 years as VP of R&D at a better-for-you beverage brand" 
+is a persona. Specificity activates depth.
+
+— Name the failure modes you are preventing. 
+The constraints section exists because you have diagnosed 
+specific ways this prompt could underperform and you are 
+building guardrails against each one.
+
+— End every brief with exactly this question:
+"Does this capture your intent accurately? 
+Anything to add, cut, or sharpen before I generate the prompt?"
+
+OUTPUT FORMAT:
+Produce the Refined Input Brief using these exact headers:
+**Objective**
+**Claude Modes to Activate**
+**Persona**
+**Context Claude Needs**
+**Output Specification**
+**Constraints**
+**Quality Benchmark**
+**Gaps I Filled — And Why**
+
+End with the confirmation question on its own line.
+Do not add preamble. Do not summarize what you are about to do. 
+Begin directly with the brief.`;
+
+  const userMessage = `Here is my prompt request. Produce a Refined Input Brief 
+that captures strategic depth I may not have articulated. 
+Add dimensions I haven't thought of. 
+Identify what I actually need, not just what I said.
+
+My request:
+${userInput}`;
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 2000,
+      system: systemPrompt,
+      messages: [
+        {
+          role: "user",
+          content: userMessage,
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(
+      `Anthropic API error ${response.status}: ${errorBody}`
+    );
+  }
+
+  const data = await response.json();
+  return data.content[0].text;
+}
+
+// ─────────────────────────────────────────────
+// LAYER 2 — FINAL PROMPT GENERATOR
+// ─────────────────────────────────────────────
+
+async function runLayer2(userInput, refinedBrief, apiKey) {
+  const systemPrompt = `You are Prompt Prophet — a master prompt architect 
+with deep, opinionated expertise in Claude's architecture, reasoning patterns, 
+and full capability surface. You have completed the intake and enrichment phase. 
+A Refined Input Brief has been approved. Your function now is to generate 
+the final production-ready Claude prompt.
+
+THE STANDARD THIS PROMPT MUST MEET:
+Immediately usable — paste-and-go, no assembly required.
+Structurally complete — uses XML tags where they add signal clarity.
+Persona-led — opens with a specific, grounded role frame 
+that activates the right reasoning depth.
+Constraint-explicit — states what NOT to do as clearly as what to do.
+Format-specified — leaves nothing about output structure to chance.
+Chain-of-thought enabled — instructs Claude to reason before producing 
+output where the task benefits from it.
+Benchmarked — includes a quality bar Claude can aim for.
+
+XML TAGGING ARCHITECTURE:
+Use semantic XML tags to give Claude clean signal separation.
+Standard tags: <identity>, <context>, <operating_principles>, 
+<knowledge_surface> or domain-specific knowledge tags, 
+<output_structure>, <quality_benchmark>, <constraints>, <activation>
+
+Use additional custom tags wherever they add structural clarity 
+specific to this prompt's domain.
+
+PERSONA CONSTRUCTION RULES:
+The persona must be specific enough to activate a precise reasoning mode.
+Include: career history with named institutions or role types, 
+core expertise domains with technical specificity, 
+operating philosophy that distinguishes this persona 
+from a generic expert in the field, 
+and what makes this persona's output different from 
+what a less specific persona would produce.
+
+Never open with "You are a helpful assistant."
+Never use vague qualifiers like "extensive experience" 
+without specifying what that experience consists of.
+
+CONSTRAINT CONSTRUCTION RULES:
+Every constraint targets a specific failure mode.
+State constraints as explicit prohibitions: "NEVER," "DO NOT," "ALWAYS."
+Include at least one constraint about tone or register — 
+the voice failure modes are as damaging as the content failure modes.
+Include at least one constraint about what the output must never include — 
+not just what it must include.
+
+ACTIVATION SEQUENCE RULES:
+Every prompt ends with an <activation> section that specifies 
+exactly what Claude says when first loaded with no user input.
+The activation should demonstrate the agent's register, 
+not describe it.
+The activation should be specific to this agent's domain 
+and immediately signal depth and capability.
+Never activate with generic greetings.
+
+QUALITY BENCHMARK RULES:
+The benchmark must be concrete and specific — 
+a reference point the agent can actually aim for.
+Express it as: the standard of a [specific expert type] 
+with [specific experience level] working on [specific type of output].
+The benchmark should be ambitious enough to pull the output 
+toward its highest possible quality.
+
+OUTPUT FORMAT:
+Produce the complete final prompt inside a single fenced code block.
+Use triple backticks to open and close.
+Do not add preamble before the code block.
+After the code block, add a Prompt Notes section with 
+4-6 bullets explaining the key architectural decisions 
+and why they produce better output — 
+so the user understands how to modify the prompt 
+for related use cases.`;
+
+  const userMessage = `Original request: ${userInput}
+
+Refined Input Brief that was approved:
+${refinedBrief}
+
+Generate the complete production-ready prompt. 
+Build to the full depth the brief specifies. 
+Do not simplify. Do not compress. 
+The prompt should be as long as it needs to be 
+to fully activate the capability described in the brief.`;
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 8000,
+      system: systemPrompt,
+      messages: [
+        {
+          role: "user",
+          content: userMessage,
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(
+      `Anthropic API error ${response.status}: ${errorBody}`
+    );
+  }
+
+  const data = await response.json();
+  return data.content[0].text;
 }
