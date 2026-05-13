@@ -1,0 +1,52 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: #F8F4EE;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+textarea:focus {
+  border-color: #B87333 !important;
+  box-shadow: 0 0 0 3px rgba(184,115,51,0.1);
+}
+
+button:hover {
+  transform: translateY(-1px);
+}
+
+@keyframes orbPulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 16px 48px rgba(184,115,51,0.4);
+  }
+  50% {
+    transform: scale(1.08);
+    box-shadow: 0 20px 60px rgba(184,115,51,0.6);
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F8F4EE;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #E4DBCF;
+  border-radius: 100px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #B87333;
+}
