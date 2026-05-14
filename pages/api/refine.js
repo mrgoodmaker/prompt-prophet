@@ -391,5 +391,170 @@ to fully activate the capability described in the brief.`;
   }
 
   const data = await response.json();
-  return data.content[0].text;
+  const generatedPrompt = data.content[0].text;
+
+  // Run the activation audit before returning.
+  // If the audit succeeds, the user receives the remediated prompt.
+  // If the audit fails for any reason, the user receives the original —
+  // uninterrupted experience either way.
+  const auditedPrompt = await runActivationAudit(generatedPrompt, apiKey);
+  return auditedPrompt;
+}
+
+// ─────────────────────────────────────────────
+// ACTIVATION AUDIT — POST-PROCESSING PASS
+// Runs after Layer 2 generation, before the result
+// is returned to the frontend. Evaluates the generated
+// prompt against five activation criteria and rewrites
+// any failing element before the user sees the output.
+// Falls back to the original prompt on any failure.
+// ─────────────────────────────────────────────
+
+async function runActivationAudit(generatedPrompt, apiKey) {
+  const auditSystemPrompt = `You are an activation audit engine for Claude prompts.
+Your function is to evaluate a generated prompt against five pass/fail criteria
+and return a JSON object containing the audit results and the fully remediated prompt.
+
+THE FIVE ACTIVATION CRITERIA:
+
+CRITERION 1 — ACTIVATION TAG PRESENT
+The prompt must contain an <activation> tag with content inside it.
+Fail condition: No <activation> tag present, or the tag is empty.
+Remediation: Generate a contextually appropriate activation sequence
+based on the persona and domain established in the prompt. The activation
+must demonstrate the agent's register — not describe it.
+
+CRITERION 2 — ACTIVATION DEMONSTRATES, NOT DESCRIBES
+The content inside the <activation> tag must show the agent's voice
+through the words it uses — not explain what the agent will do.
+Fail condition: The activation contains phrases like "I am ready to help,"
+"I can assist you with," "Welcome, I am [name]," or any other meta-commentary
+about the agent's capabilities rather than demonstrating them in action.
+Remediation: Rewrite the activation to open in the agent's voice,
+signaling its operating style and domain command in the first line.
+
+CRITERION 3 — PERSONA SPECIFICITY
+The identity or persona section must be specific enough that it could
+only describe one hypothetical person — not a category of people.
+Fail condition: The persona uses categorical descriptors without
+biographical specificity. Examples of failure: "an expert in X,"
+"a professional with extensive experience," "a seasoned consultant."
+Remediation: Expand the persona with career history, specific institutions
+or role types, named expertise domains, and an operating philosophy
+that distinguishes this persona from a generic expert.
+
+CRITERION 4 — CONSTRAINTS ARE EXPLICIT
+The prompt must contain explicit negative constraints — specific prohibitions
+that name failure modes and use language like NEVER, DO NOT, or ALWAYS.
+Fail condition: No negative constraints present, or constraints are
+positive statements reworded as negatives without naming specific failure modes.
+Example of failure: "Always be professional" is not a constraint.
+Remediation: Generate domain-appropriate negative constraints that target
+the specific failure modes most likely for this agent type and task.
+
+CRITERION 5 — QUALITY BENCHMARK PRESENT
+The prompt must contain a concrete quality benchmark — a specific reference
+point the agent can aim for, not an abstract positive.
+Fail condition: No benchmark present, or benchmark uses phrases like
+"high quality," "professional standard," or "best possible output"
+without a concrete reference point.
+Remediation: Generate a domain-appropriate benchmark expressed as:
+the standard of a [specific expert type] with [specific experience]
+working on [specific output type].
+
+YOUR OUTPUT FORMAT:
+Return only a valid JSON object. No preamble. No explanation outside the JSON.
+No markdown code fences. Raw JSON only.
+
+The JSON must have exactly this structure:
+{
+  "criterion1_passed": true or false,
+  "criterion2_passed": true or false,
+  "criterion3_passed": true or false,
+  "criterion4_passed": true or false,
+  "criterion5_passed": true or false,
+  "any_failed": true or false,
+  "remediatedPrompt": "the complete prompt text with all failing criteria fixed"
+}
+
+If all five criteria pass, remediatedPrompt must still contain the full
+original prompt text — unchanged, complete, verbatim.
+If any criterion fails, remediatedPrompt must contain the full prompt
+with only the failing elements rewritten. Do not alter passing elements.
+The remediatedPrompt must always be the complete, usable prompt —
+never a partial or summarized version.`;
+
+  const auditUserMessage = `Evaluate this generated prompt against the five activation criteria.
+Return the JSON audit result with the complete remediated prompt.
+
+PROMPT TO AUDIT:
+${generatedPrompt}`;
+
+  try {
+    const auditResponse = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 4000,
+        system: auditSystemPrompt,
+        messages: [
+          {
+            role: "user",
+            content: auditUserMessage,
+          },
+        ],
+      }),
+    });
+
+    if (!auditResponse.ok) {
+      // Audit API call failed — log and fall back to original
+      const errorBody = await auditResponse.text();
+      console.error(`Activation audit API error ${auditResponse.status}: ${errorBody}`);
+      return generatedPrompt;
+    }
+
+    const auditData = await auditResponse.json();
+    const auditText = auditData.content[0].text.trim();
+
+    // Strip markdown fences if the model wrapped the JSON despite instructions
+    const cleanedText = auditText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+
+    let auditResult;
+    try {
+      auditResult = JSON.parse(cleanedText);
+    } catch (parseError) {
+      // JSON parse failed — log and fall back to original
+      console.error("Activation audit JSON parse failed:", parseError.message);
+      console.error("Raw audit response:", auditText);
+      return generatedPrompt;
+    }
+
+    // Validate the remediatedPrompt field exists and is a non-empty string
+    if (!auditResult.remediatedPrompt || typeof auditResult.remediatedPrompt !== 'string' || auditResult.remediatedPrompt.trim().length === 0) {
+      console.error("Activation audit returned invalid remediatedPrompt field");
+      return generatedPrompt;
+    }
+
+    // Log audit results server-side for visibility without exposing to client
+    console.log("Activation audit complete:", {
+      criterion1_passed: auditResult.criterion1_passed,
+      criterion2_passed: auditResult.criterion2_passed,
+      criterion3_passed: auditResult.criterion3_passed,
+      criterion4_passed: auditResult.criterion4_passed,
+      criterion5_passed: auditResult.criterion5_passed,
+      any_failed: auditResult.any_failed,
+    });
+
+    return auditResult.remediatedPrompt;
+
+  } catch (error) {
+    // Any unexpected error — log and fall back to original
+    console.error("Activation audit unexpected error:", error.message);
+    return generatedPrompt;
+  }
 }
