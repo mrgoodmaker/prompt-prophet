@@ -330,8 +330,7 @@ This is the single most powerful technique for defeating document mode.
 WORKS — sounds like Claude is already responding to something:
 "That constraint changes the calculus significantly — $12K monthly
 means you need full income replacement, not supplemental revenue.
-What does your current runway look like, and do you have an existing
-professional network you could activate quickly?"
+What does your current runway look like?"
 
 FAILS — sounds like an opening statement a document would describe:
 "Replacing $12K monthly overhead is a solvable problem.
@@ -350,15 +349,48 @@ must be a direct imperative instruction that assumes execution has begun:
 This line prevents Claude from entering document-analysis mode before
 it even reaches the activation content.
 
+ACTIVATION CONSTRUCTION RULES:
+The activation must do exactly three things in exactly this order:
+1. One sentence that demonstrates domain expertise by making a specific
+   insight about the user's situation — not a capability statement,
+   not a greeting, not a description of what will happen next.
+   It must feel like an expert who already knows something reacting
+   to what the user said.
+2. Nothing else between the insight and the question.
+3. ONE focused diagnostic question — the single question whose answer
+   unlocks the most useful analysis for this specific domain.
+   One question only. Not two questions joined by "and."
+   Not a question followed by a clarifying sub-question.
+   The one question a real expert would ask first.
+
+ACTIVATION LENGTH: Three sentences maximum. Insight. Question. Done.
+Anything longer dilutes the impact and starts to read like a document.
+
 PROMPT STRUCTURE — use exactly this order:
 Line 1: The imperative opening instruction (plain text, no tag)
 Then: <activation> with response-mode content
 Then: <context>
 Then: <operating_principles>
-Then: Domain-specific knowledge tags
+Then: Domain-specific knowledge tags as needed
 Then: <output_structure>
 Then: <quality_benchmark>
 Then: <constraints>
+
+OUTPUT STRUCTURE RULES:
+The <output_structure> tag must specify that Claude leads with
+a sharp initial read of the user's situation based on what they share,
+then asks follow-up questions only when necessary.
+Claude must never open with a list of questions.
+Claude must never interrogate before delivering value.
+The pattern is: insight first, questions only when they unlock
+better analysis than proceeding without the answer.
+
+OPERATING PRINCIPLES RULES:
+The <operating_principles> tag must name specific failure modes
+that are common for this domain — not generic analytical categories.
+For each domain, identify the 3-4 most common ways this type of
+analysis goes wrong and build the principles around preventing those
+specific failures. Generic principles produce generic output.
 
 XML TAGGING:
 Use semantic XML tags for clean signal separation.
@@ -369,11 +401,14 @@ Claude operates as itself with expert-level domain instructions.
 CONSTRAINT CONSTRUCTION:
 Every constraint targets a specific failure mode.
 Use NEVER, DO NOT, ALWAYS explicitly.
-Minimum four constraints. Each one names a specific failure mode.
+Minimum four constraints. Each one names a specific failure mode
+that is realistic and common for this domain.
+Generic constraints like "always be helpful" are prohibited.
 
 QUALITY BENCHMARK:
 Concrete and specific — name the expert type, experience level,
 and output type. Never use abstract positives like "high quality."
+The benchmark should make Claude aim higher than it would by default.
 
 OUTPUT FORMAT:
 Produce the complete prompt as plain text.
@@ -395,7 +430,10 @@ Build to the full depth the brief specifies.
 Do not simplify. Do not compress.
 Use the three activation techniques to guarantee execution mode.
 No persona construction. No identity tags. No code fences.
-Claude operates as itself with expert-level instructions.`;
+Claude operates as itself with expert-level instructions.
+The activation must be three sentences maximum: one insight, one question.
+The output structure must lead with value before asking questions.
+The operating principles must name domain-specific failure modes.`;
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -445,23 +483,33 @@ The <activation> tag must appear before any other XML tag in the prompt.
 Fail condition: Any other XML tag appears before <activation>.
 Remediation: Move <activation> to be the first XML tag after the imperative line.
 
-CRITERION 3 — ACTIVATION WRITTEN AS RESPONSE NOT OPENING
-The activation content must sound like Claude is already responding
-to something the user said — not delivering an opening statement.
-Fail condition: Activation reads as an opening statement, capability description,
-greeting, or contains persona/identity/compliance language.
-Remediation: Rewrite as a mid-conversation response that implies
-the user already spoke, ending with one focused diagnostic question.
+CRITERION 3 — ACTIVATION IS SHARP AND FOCUSED
+The activation must be three sentences maximum.
+It must open with one sentence that demonstrates domain expertise
+through a specific insight — not a capability statement or greeting.
+It must end with exactly one focused diagnostic question.
+It must not contain two questions joined by "and."
+It must not contain filler sentences describing what will happen next.
+Fail condition: Activation is longer than three sentences, contains
+two questions, contains filler capability statements, or contains
+persona/identity/compliance language.
+Remediation: Rewrite to: one expert insight sentence reacting to
+the user's situation, then one focused diagnostic question. Nothing else.
 
-CRITERION 4 — CONSTRAINTS ARE EXPLICIT
-Must contain NEVER, DO NOT, or ALWAYS targeting specific failure modes.
-Fail condition: No explicit negative constraints or only generic positives.
-Remediation: Add minimum four domain-appropriate negative constraints.
+CRITERION 4 — CONSTRAINTS ARE EXPLICIT AND DOMAIN-SPECIFIC
+Must contain NEVER, DO NOT, or ALWAYS targeting specific failure modes
+that are realistic and common for this specific domain.
+Fail condition: Fewer than four constraints, generic constraints,
+or constraints that could apply to any topic.
+Remediation: Write minimum four domain-specific constraints that
+each name a concrete failure mode for this topic area.
 
-CRITERION 5 — QUALITY BENCHMARK PRESENT
-Must name specific expert type, experience level, and output type.
-Fail condition: Abstract positives only, or no benchmark present.
-Remediation: Write concrete benchmark with specific reference point.
+CRITERION 5 — QUALITY BENCHMARK PRESENT AND SPECIFIC
+Must name a specific expert type, experience level, and output type.
+Fail condition: Abstract positives only, vague expert references,
+or no benchmark present.
+Remediation: Write concrete benchmark naming the specific expert
+type and experience level whose output this should match.
 
 OUTPUT FORMAT:
 Return only valid raw JSON. No preamble. No markdown fences.
