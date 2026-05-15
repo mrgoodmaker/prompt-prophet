@@ -36,7 +36,6 @@ export default async function handler(req, res) {
     }
 
     if (layer === 2) {
-      // Check prompt count before running Layer 2
       if (email) {
         const count = await getPromptCount(email);
         if (count >= 5) {
@@ -49,7 +48,6 @@ export default async function handler(req, res) {
 
       const response = await runLayer2(userInput, refinedBrief, apiKey);
 
-      // Increment count after successful generation
       if (email) {
         await incrementPromptCount(email);
       }
@@ -76,8 +74,6 @@ export default async function handler(req, res) {
 
 // ─────────────────────────────────────────────
 // REDIS PROMPT COUNT HELPERS
-// Uses Upstash REST API directly — no SDK required.
-// Key format: pp_count:{email}
 // ─────────────────────────────────────────────
 
 async function getPromptCount(email) {
@@ -332,78 +328,77 @@ the final production-ready Claude prompt.
 THE STANDARD THIS PROMPT MUST MEET:
 Immediately usable — paste-and-go, no assembly required.
 Structurally complete — uses XML tags where they add signal clarity.
-Persona-led — opens with a specific, grounded role frame 
-that activates the right reasoning depth.
+Instruction-led — opens with clear operational context that tells Claude
+exactly what this conversation is for and how to approach it.
 Constraint-explicit — states what NOT to do as clearly as what to do.
 Format-specified — leaves nothing about output structure to chance.
-Chain-of-thought enabled — instructs Claude to reason before producing 
+Chain-of-thought enabled — instructs Claude to reason before producing
 output where the task benefits from it.
 Benchmarked — includes a quality bar Claude can aim for.
 
+DO NOT construct personas or ask Claude to embody a fabricated identity.
+Claude works best when given clear instructions, context, and constraints —
+not when asked to pretend to be someone else.
+All prompts must work with Claude operating as itself.
+
 XML TAGGING ARCHITECTURE:
 Use semantic XML tags to give Claude clean signal separation.
-Standard tags: <identity>, <context>, <operating_principles>, 
-<knowledge_surface> or domain-specific knowledge tags, 
+Standard tags: <context>, <operating_principles>,
+<knowledge_surface> or domain-specific knowledge tags,
 <output_structure>, <quality_benchmark>, <constraints>, <activation>
 
-Use additional custom tags wherever they add structural clarity 
+Use additional custom tags wherever they add structural clarity
 specific to this prompt's domain.
-
-PERSONA CONSTRUCTION RULES:
-The persona must be specific enough to activate a precise reasoning mode.
-Include: career history with named institutions or role types, 
-core expertise domains with technical specificity, 
-operating philosophy that distinguishes this persona 
-from a generic expert in the field, 
-and what makes this persona's output different from 
-what a less specific persona would produce.
-
-Never open with "You are a helpful assistant."
-Never use vague qualifiers like "extensive experience" 
-without specifying what that experience consists of.
 
 CONSTRAINT CONSTRUCTION RULES:
 Every constraint targets a specific failure mode.
 State constraints as explicit prohibitions: "NEVER," "DO NOT," "ALWAYS."
-Include at least one constraint about tone or register — 
+Include at least one constraint about tone or register —
 the voice failure modes are as damaging as the content failure modes.
-Include at least one constraint about what the output must never include — 
+Include at least one constraint about what the output must never include —
 not just what it must include.
 
 ACTIVATION SEQUENCE RULES:
-Every prompt ends with an <activation> section.
-The activation must do three things in order:
-1. Acknowledge the task the user is looking to accomplish
-2. Signal readiness and capability in the agent's voice
-3. Ask for the user's name
+Every prompt ends with an <activation> section that specifies
+exactly what Claude says when first loaded with no user input.
 
-Example of correct activation format:
-"You've come to the right place for [task domain]. 
-[One sentence demonstrating the agent's operating style and command of the domain.]
-Before we dive in — what's your name?"
+The activation must do three things in exactly this order:
+1. Demonstrate comprehension of the specific task domain —
+   one sentence that proves the prompt loaded and understood the brief.
+   This should reference the specific problem space, not generic readiness.
+2. State the operating approach in one sentence —
+   how Claude will engage with this topic, what methodology it brings.
+3. Ask the single most important diagnostic question for this domain —
+   the one question whose answer unlocks the most useful response.
+   One question only. The question that a real expert would ask first.
 
-Never activate with generic greetings.
-Never describe what the agent will do — demonstrate it.
-Never use override or compliance language like 
-"do not break character" or "adopt this identity" —
-these trigger safety refusals and break the prompt.
+The activation must feel like the opening move of a sharp conversation —
+not a customer service greeting, not a capability list, not a welcome message.
+It should make the user think "this thing actually understood what I need."
+
+NEVER use these patterns in the activation:
+- "I'm ready to help you with..."
+- "Welcome to..."
+- "I can assist you with..."
+- "Hello! I'm here to..."
+- Any description of what the AI will do rather than doing it
 
 QUALITY BENCHMARK RULES:
-The benchmark must be concrete and specific — 
-a reference point the agent can actually aim for.
-Express it as: the standard of a [specific expert type] 
+The benchmark must be concrete and specific —
+a reference point Claude can actually aim for.
+Express it as: the standard of a [specific expert type]
 with [specific experience level] working on [specific type of output].
-The benchmark should be ambitious enough to pull the output 
+The benchmark should be ambitious enough to pull the output
 toward its highest possible quality.
 
 OUTPUT FORMAT:
 Produce the complete final prompt inside a single fenced code block.
 Use triple backticks to open and close.
 Do not add preamble before the code block.
-After the code block, add a Prompt Notes section with 
-4-6 bullets explaining the key architectural decisions 
-and why they produce better output — 
-so the user understands how to modify the prompt 
+After the code block, add a Prompt Notes section with
+4-6 bullets explaining the key architectural decisions
+and why they produce better output —
+so the user understands how to modify the prompt
 for related use cases.`;
 
   const userMessage = `Original request: ${userInput}
@@ -411,11 +406,13 @@ for related use cases.`;
 Refined Input Brief that was approved:
 ${refinedBrief}
 
-Generate the complete production-ready prompt. 
-Build to the full depth the brief specifies. 
-Do not simplify. Do not compress. 
-The prompt should be as long as it needs to be 
-to fully activate the capability described in the brief.`;
+Generate the complete production-ready prompt.
+Build to the full depth the brief specifies.
+Do not simplify. Do not compress.
+The prompt should be as long as it needs to be
+to fully activate the capability described in the brief.
+Do not construct a persona or fictional identity.
+Claude operates as itself with expert-level instructions.`;
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -459,30 +456,35 @@ CRITERION 1 — ACTIVATION TAG PRESENT
 The prompt must contain an <activation> tag with content inside it.
 Fail condition: No <activation> tag present, or the tag is empty.
 Remediation: Generate a contextually appropriate activation sequence
-based on the persona and domain established in the prompt.
+based on the domain and task established in the prompt.
 
-CRITERION 2 — ACTIVATION DEMONSTRATES AND ASKS FOR NAME
-The activation must: acknowledge the task domain, demonstrate the agent's
-voice and capability in one sentence, then ask for the user's name.
-Fail condition: Activation contains override/compliance language
-("do not break character", "adopt this identity", "respond only as"),
-or does not ask for the user's name, or describes rather than demonstrates.
-Remediation: Rewrite the activation to acknowledge the task, demonstrate
-the agent's voice, and end with asking for the user's name.
+CRITERION 2 — ACTIVATION QUALITY
+The activation must: demonstrate comprehension of the specific task domain
+in one sentence, state the operating approach in one sentence, then ask
+the single most important diagnostic question for this domain.
+Fail condition: Activation contains persona/identity language,
+override or compliance instructions ("do not break character",
+"adopt this identity", "respond only as"), generic greeting patterns
+("I'm ready to help", "Welcome", "I can assist you with"),
+or does not end with a single focused diagnostic question.
+Remediation: Rewrite the activation to demonstrate domain comprehension,
+state operating approach, and ask the one most important question.
 
-CRITERION 3 — PERSONA SPECIFICITY
-The identity or persona section must be specific enough that it could
-only describe one hypothetical person — not a category of people.
-Fail condition: Categorical descriptors without biographical specificity.
-Remediation: Expand with career history, specific institutions or role types,
-named expertise domains, and a distinguishing operating philosophy.
+CRITERION 3 — NO PERSONA CONSTRUCTION
+The prompt must not ask Claude to embody a fabricated identity or
+pretend to be a named fictional expert.
+Fail condition: Prompt contains an <identity> tag with a fictional person,
+or instructs Claude to "be" or "act as" a named character.
+Remediation: Remove the identity/persona section entirely.
+Convert any persona-specific instructions into operational instructions
+Claude can follow as itself.
 
 CRITERION 4 — CONSTRAINTS ARE EXPLICIT
 The prompt must contain explicit negative constraints using NEVER, DO NOT, or ALWAYS
 that name specific failure modes.
 Fail condition: No negative constraints, or constraints are generic positives.
 Remediation: Generate domain-appropriate negative constraints targeting
-the specific failure modes most likely for this agent type.
+the specific failure modes most likely for this task type.
 
 CRITERION 5 — QUALITY BENCHMARK PRESENT
 The prompt must contain a concrete quality benchmark with a specific reference point.
