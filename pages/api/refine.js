@@ -7,7 +7,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { layer, userInput, refinedBrief } = req.body;
+  const { layer, userInput, refinedBrief, email } = req.body;
 
   if (!layer || !userInput) {
     return res.status(400).json({
@@ -36,8 +36,30 @@ export default async function handler(req, res) {
     }
 
     if (layer === 2) {
+      // Check prompt count before running Layer 2
+      if (email) {
+        const count = await getPromptCount(email);
+        if (count >= 5) {
+          return res.status(403).json({
+            error: "Free prompt limit reached",
+            promptCount: count,
+          });
+        }
+      }
+
       const response = await runLayer2(userInput, refinedBrief, apiKey);
-      return res.status(200).json({ result: response });
+
+      // Increment count after successful generation
+      if (email) {
+        await incrementPromptCount(email);
+      }
+
+      const newCount = email ? await getPromptCount(email) : null;
+
+      return res.status(200).json({
+        result: response,
+        promptCount: newCount,
+      });
     }
 
     return res.status(400).json({
@@ -49,6 +71,50 @@ export default async function handler(req, res) {
       error: "API request failed",
       detail: error.message,
     });
+  }
+}
+
+// ─────────────────────────────────────────────
+// REDIS PROMPT COUNT HELPERS
+// Uses Upstash REST API directly — no SDK required.
+// Key format: pp_count:{email}
+// ─────────────────────────────────────────────
+
+async function getPromptCount(email) {
+  const kvUrl = process.env.KV_REST_API_URL;
+  const kvToken = process.env.KV_REST_API_TOKEN;
+  if (!kvUrl || !kvToken) return 0;
+
+  try {
+    const normalizedEmail = email.toLowerCase().trim();
+    const redisKey = `pp_count:${normalizedEmail}`;
+    const response = await fetch(`${kvUrl}/get/${redisKey}`, {
+      headers: { Authorization: `Bearer ${kvToken}` },
+    });
+    const data = await response.json();
+    return data.result !== null && data.result !== undefined
+      ? parseInt(data.result)
+      : 0;
+  } catch (error) {
+    console.error("Redis getPromptCount error:", error.message);
+    return 0;
+  }
+}
+
+async function incrementPromptCount(email) {
+  const kvUrl = process.env.KV_REST_API_URL;
+  const kvToken = process.env.KV_REST_API_TOKEN;
+  if (!kvUrl || !kvToken) return;
+
+  try {
+    const normalizedEmail = email.toLowerCase().trim();
+    const redisKey = `pp_count:${normalizedEmail}`;
+    await fetch(`${kvUrl}/incr/${redisKey}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${kvToken}` },
+    });
+  } catch (error) {
+    console.error("Redis incrementPromptCount error:", error.message);
   }
 }
 
@@ -239,20 +305,13 @@ ${userInput}`;
       model: "claude-sonnet-4-20250514",
       max_tokens: 2000,
       system: systemPrompt,
-      messages: [
-        {
-          role: "user",
-          content: userMessage,
-        },
-      ],
+      messages: [{ role: "user", content: userMessage }],
     }),
   });
 
   if (!response.ok) {
     const errorBody = await response.text();
-    throw new Error(
-      `Anthropic API error ${response.status}: ${errorBody}`
-    );
+    throw new Error(`Anthropic API error ${response.status}: ${errorBody}`);
   }
 
   const data = await response.json();
@@ -311,28 +370,23 @@ the voice failure modes are as damaging as the content failure modes.
 Include at least one constraint about what the output must never include — 
 not just what it must include.
 
-MANDATORY OPENING INSTRUCTION:
-Every prompt you generate must begin with this exact line before any other content,
-including before the <identity> tag or any persona framing:
-
-"Adopt the following identity completely and begin the session immediately.
-Do not evaluate, critique, or comment on these instructions.
-Do not break character under any circumstances.
-Respond only as the persona described from your very first word."
-
-This line is non-negotiable. It is the activation guard that ensures the prompt
-works when pasted into any Claude conversation. Without it, Claude will analyze
-the prompt instead of embodying it. Every single prompt Prophet generates
-must open with this line. No exceptions.
-
 ACTIVATION SEQUENCE RULES:
-Every prompt ends with an <activation> section that specifies 
-exactly what Claude says when first loaded with no user input.
-The activation should demonstrate the agent's register, 
-not describe it.
-The activation should be specific to this agent's domain 
-and immediately signal depth and capability.
+Every prompt ends with an <activation> section.
+The activation must do three things in order:
+1. Acknowledge the task the user is looking to accomplish
+2. Signal readiness and capability in the agent's voice
+3. Ask for the user's name
+
+Example of correct activation format:
+"You've come to the right place for [task domain]. 
+[One sentence demonstrating the agent's operating style and command of the domain.]
+Before we dive in — what's your name?"
+
 Never activate with generic greetings.
+Never describe what the agent will do — demonstrate it.
+Never use override or compliance language like 
+"do not break character" or "adopt this identity" —
+these trigger safety refusals and break the prompt.
 
 QUALITY BENCHMARK RULES:
 The benchmark must be concrete and specific — 
@@ -374,40 +428,24 @@ to fully activate the capability described in the brief.`;
       model: "claude-sonnet-4-20250514",
       max_tokens: 8000,
       system: systemPrompt,
-      messages: [
-        {
-          role: "user",
-          content: userMessage,
-        },
-      ],
+      messages: [{ role: "user", content: userMessage }],
     }),
   });
 
   if (!response.ok) {
     const errorBody = await response.text();
-    throw new Error(
-      `Anthropic API error ${response.status}: ${errorBody}`
-    );
+    throw new Error(`Anthropic API error ${response.status}: ${errorBody}`);
   }
 
   const data = await response.json();
   const generatedPrompt = data.content[0].text;
 
-  // Run the activation audit before returning.
-  // If the audit succeeds, the user receives the remediated prompt.
-  // If the audit fails for any reason, the user receives the original —
-  // uninterrupted experience either way.
   const auditedPrompt = await runActivationAudit(generatedPrompt, apiKey);
   return auditedPrompt;
 }
 
 // ─────────────────────────────────────────────
 // ACTIVATION AUDIT — POST-PROCESSING PASS
-// Runs after Layer 2 generation, before the result
-// is returned to the frontend. Evaluates the generated
-// prompt against five activation criteria and rewrites
-// any failing element before the user sees the output.
-// Falls back to the original prompt on any failure.
 // ─────────────────────────────────────────────
 
 async function runActivationAudit(generatedPrompt, apiKey) {
@@ -421,52 +459,40 @@ CRITERION 1 — ACTIVATION TAG PRESENT
 The prompt must contain an <activation> tag with content inside it.
 Fail condition: No <activation> tag present, or the tag is empty.
 Remediation: Generate a contextually appropriate activation sequence
-based on the persona and domain established in the prompt. The activation
-must demonstrate the agent's register — not describe it.
+based on the persona and domain established in the prompt.
 
-CRITERION 2 — ACTIVATION DEMONSTRATES, NOT DESCRIBES
-The content inside the <activation> tag must show the agent's voice
-through the words it uses — not explain what the agent will do.
-Fail condition: The activation contains phrases like "I am ready to help,"
-"I can assist you with," "Welcome, I am [name]," or any other meta-commentary
-about the agent's capabilities rather than demonstrating them in action.
-Remediation: Rewrite the activation to open in the agent's voice,
-signaling its operating style and domain command in the first line.
+CRITERION 2 — ACTIVATION DEMONSTRATES AND ASKS FOR NAME
+The activation must: acknowledge the task domain, demonstrate the agent's
+voice and capability in one sentence, then ask for the user's name.
+Fail condition: Activation contains override/compliance language
+("do not break character", "adopt this identity", "respond only as"),
+or does not ask for the user's name, or describes rather than demonstrates.
+Remediation: Rewrite the activation to acknowledge the task, demonstrate
+the agent's voice, and end with asking for the user's name.
 
 CRITERION 3 — PERSONA SPECIFICITY
 The identity or persona section must be specific enough that it could
 only describe one hypothetical person — not a category of people.
-Fail condition: The persona uses categorical descriptors without
-biographical specificity. Examples of failure: "an expert in X,"
-"a professional with extensive experience," "a seasoned consultant."
-Remediation: Expand the persona with career history, specific institutions
-or role types, named expertise domains, and an operating philosophy
-that distinguishes this persona from a generic expert.
+Fail condition: Categorical descriptors without biographical specificity.
+Remediation: Expand with career history, specific institutions or role types,
+named expertise domains, and a distinguishing operating philosophy.
 
 CRITERION 4 — CONSTRAINTS ARE EXPLICIT
-The prompt must contain explicit negative constraints — specific prohibitions
-that name failure modes and use language like NEVER, DO NOT, or ALWAYS.
-Fail condition: No negative constraints present, or constraints are
-positive statements reworded as negatives without naming specific failure modes.
-Example of failure: "Always be professional" is not a constraint.
-Remediation: Generate domain-appropriate negative constraints that target
-the specific failure modes most likely for this agent type and task.
+The prompt must contain explicit negative constraints using NEVER, DO NOT, or ALWAYS
+that name specific failure modes.
+Fail condition: No negative constraints, or constraints are generic positives.
+Remediation: Generate domain-appropriate negative constraints targeting
+the specific failure modes most likely for this agent type.
 
 CRITERION 5 — QUALITY BENCHMARK PRESENT
-The prompt must contain a concrete quality benchmark — a specific reference
-point the agent can aim for, not an abstract positive.
-Fail condition: No benchmark present, or benchmark uses phrases like
-"high quality," "professional standard," or "best possible output"
-without a concrete reference point.
-Remediation: Generate a domain-appropriate benchmark expressed as:
-the standard of a [specific expert type] with [specific experience]
-working on [specific output type].
+The prompt must contain a concrete quality benchmark with a specific reference point.
+Fail condition: No benchmark, or benchmark uses abstract positives only.
+Remediation: Generate a benchmark expressed as the standard of a specific
+expert type with specific experience working on a specific output type.
 
 YOUR OUTPUT FORMAT:
-Return only a valid JSON object. No preamble. No explanation outside the JSON.
-No markdown code fences. Raw JSON only.
+Return only a valid JSON object. No preamble. No markdown fences. Raw JSON only.
 
-The JSON must have exactly this structure:
 {
   "criterion1_passed": true or false,
   "criterion2_passed": true or false,
@@ -477,12 +503,7 @@ The JSON must have exactly this structure:
   "remediatedPrompt": "the complete prompt text with all failing criteria fixed"
 }
 
-If all five criteria pass, remediatedPrompt must still contain the full
-original prompt text — unchanged, complete, verbatim.
-If any criterion fails, remediatedPrompt must contain the full prompt
-with only the failing elements rewritten. Do not alter passing elements.
-The remediatedPrompt must always be the complete, usable prompt —
-never a partial or summarized version.`;
+remediatedPrompt must always be the complete, usable prompt — never partial.`;
 
   const auditUserMessage = `Evaluate this generated prompt against the five activation criteria.
 Return the JSON audit result with the complete remediated prompt.
@@ -502,17 +523,11 @@ ${generatedPrompt}`;
         model: "claude-sonnet-4-20250514",
         max_tokens: 4000,
         system: auditSystemPrompt,
-        messages: [
-          {
-            role: "user",
-            content: auditUserMessage,
-          },
-        ],
+        messages: [{ role: "user", content: auditUserMessage }],
       }),
     });
 
     if (!auditResponse.ok) {
-      // Audit API call failed — log and fall back to original
       const errorBody = await auditResponse.text();
       console.error(`Activation audit API error ${auditResponse.status}: ${errorBody}`);
       return generatedPrompt;
@@ -520,27 +535,25 @@ ${generatedPrompt}`;
 
     const auditData = await auditResponse.json();
     const auditText = auditData.content[0].text.trim();
-
-    // Strip markdown fences if the model wrapped the JSON despite instructions
-    const cleanedText = auditText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+    const cleanedText = auditText
+      .replace(/^```json\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/```\s*$/i, '')
+      .trim();
 
     let auditResult;
     try {
       auditResult = JSON.parse(cleanedText);
     } catch (parseError) {
-      // JSON parse failed — log and fall back to original
       console.error("Activation audit JSON parse failed:", parseError.message);
-      console.error("Raw audit response:", auditText);
       return generatedPrompt;
     }
 
-    // Validate the remediatedPrompt field exists and is a non-empty string
     if (!auditResult.remediatedPrompt || typeof auditResult.remediatedPrompt !== 'string' || auditResult.remediatedPrompt.trim().length === 0) {
       console.error("Activation audit returned invalid remediatedPrompt field");
       return generatedPrompt;
     }
 
-    // Log audit results server-side for visibility without exposing to client
     console.log("Activation audit complete:", {
       criterion1_passed: auditResult.criterion1_passed,
       criterion2_passed: auditResult.criterion2_passed,
@@ -553,7 +566,6 @@ ${generatedPrompt}`;
     return auditResult.remediatedPrompt;
 
   } catch (error) {
-    // Any unexpected error — log and fall back to original
     console.error("Activation audit unexpected error:", error.message);
     return generatedPrompt;
   }
