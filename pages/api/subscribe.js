@@ -1,7 +1,7 @@
 // pages/api/subscribe.js
-// Prompt Prophet — Mailchimp email capture handler
-// Uses PUT upsert so existing contacts in any status pass through.
-// MD5 is required by Mailchimp's member endpoint as the contact identifier.
+// Prompt Prophet — Mailchimp email capture + Upstash Redis usage tracking
+// Adds subscriber to Mailchimp and initializes their prompt count in Redis.
+// Uses PUT upsert so existing contacts in any status pass through cleanly.
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -16,19 +16,21 @@ export default async function handler(req, res) {
 
   const apiKey = process.env.MAILCHIMP_API_KEY;
   const audienceId = process.env.MAILCHIMP_AUDIENCE_ID;
-// Extract server prefix directly from the API key — format is key-serverprefix
-const server = apiKey.split('-').pop();
-  if (!apiKey || !audienceId || !server) {
+
+  if (!apiKey || !audienceId) {
     console.error("Mailchimp environment variables are not fully configured");
     return res.status(500).json({ error: "Email service is not configured" });
   }
 
-  try {
-    const normalizedEmail = email.toLowerCase().trim();
-    const emailHash = md5(normalizedEmail);
-    const url = `https://${server}.api.mailchimp.com/3.0/lists/${audienceId}/members/${emailHash}`;
+  const normalizedEmail = email.toLowerCase().trim();
 
-    const response = await fetch(url, {
+  try {
+    // Step 1 — Upsert contact into Mailchimp
+    const emailHash = md5(normalizedEmail);
+    const server = apiKey.split('-').pop();
+    const mailchimpUrl = `https://${server}.api.mailchimp.com/3.0/lists/${audienceId}/members/${emailHash}`;
+
+    const mailchimpResponse = await fetch(mailchimpUrl, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -41,20 +43,58 @@ const server = apiKey.split('-').pop();
       }),
     });
 
-    const data = await response.json();
+    const mailchimpData = await mailchimpResponse.json();
 
-    if (response.ok) {
-      console.log("Mailchimp: contact upserted", normalizedEmail, data.status);
-      return res.status(200).json({ success: true, status: data.status });
+    if (!mailchimpResponse.ok) {
+      console.error("Mailchimp API error:", mailchimpData.title, mailchimpData.detail);
+      return res.status(400).json({
+        error: "We couldn't add that email address. Please try again.",
+      });
     }
 
-    console.error("Mailchimp API error:", data.title, data.detail);
-    return res.status(400).json({
-      error: "We couldn't add that email address. Please try again.",
+    console.log("Mailchimp: contact upserted", normalizedEmail, mailchimpData.status);
+
+    // Step 2 — Check if this email already has a count in Redis.
+    // If yes, they are a returning user — pass them through with existing count.
+    // If no, initialize their count at 0.
+    const kvUrl = process.env.KV_REST_API_URL;
+    const kvToken = process.env.KV_REST_API_TOKEN;
+
+    if (!kvUrl || !kvToken) {
+      // Redis not configured — still let user through, just without server-side tracking
+      console.error("Upstash KV environment variables not found — skipping count init");
+      return res.status(200).json({ success: true, promptCount: 0 });
+    }
+
+    const redisKey = `pp_count:${normalizedEmail}`;
+
+    // Check for existing count first
+    const getResponse = await fetch(`${kvUrl}/get/${redisKey}`, {
+      headers: { Authorization: `Bearer ${kvToken}` },
     });
 
+    const getData = await getResponse.json();
+    const existingCount = getData.result !== null && getData.result !== undefined
+      ? parseInt(getData.result)
+      : null;
+
+    if (existingCount !== null) {
+      // Returning user — return their existing count
+      console.log("Redis: returning user", normalizedEmail, "count:", existingCount);
+      return res.status(200).json({ success: true, promptCount: existingCount });
+    }
+
+    // New user — initialize count at 0
+    await fetch(`${kvUrl}/set/${redisKey}/0`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${kvToken}` },
+    });
+
+    console.log("Redis: new user initialized", normalizedEmail);
+    return res.status(200).json({ success: true, promptCount: 0 });
+
   } catch (error) {
-    console.error("Mailchimp subscribe unexpected error:", error.message);
+    console.error("Subscribe unexpected error:", error.message);
     return res.status(500).json({
       error: "Something went wrong. Please try again.",
     });
@@ -80,25 +120,12 @@ function md5(str) {
   function md5hh(a, b, c, d, x, s, t) { return md5cmn(b ^ c ^ d, a, b, x, s, t); }
   function md5ii(a, b, c, d, x, s, t) { return md5cmn(c ^ (b | ~d), a, b, x, s, t); }
 
-  function md5blk(s) {
-    const md5blks = [];
-    for (let i = 0; i < 64; i += 4) {
-      md5blks[i >> 2] = s.charCodeAt(i) + (s.charCodeAt(i + 1) << 8) + (s.charCodeAt(i + 2) << 16) + (s.charCodeAt(i + 3) << 24);
-    }
-    return md5blks;
-  }
-
   const length8 = str.length * 8;
-  let i;
   const l = str.length;
-  const s = [];
-  for (i = 0; i < l; i++) s[i] = str.charCodeAt(i);
-  s[l] = 0x80;
-  for (i = l + 1; i < 64; i++) s[i] = 0;
-
-  let n = Math.ceil((l + 9) / 64);
+  let i;
+  const n = Math.ceil((l + 9) / 64);
   const tail = new Array(n * 16).fill(0);
-  for (i = 0; i < l; i++) tail[i >> 2] |= s[i] << ((i % 4) * 8);
+  for (i = 0; i < l; i++) tail[i >> 2] |= str.charCodeAt(i) << ((i % 4) * 8);
   tail[i >> 2] |= 0x80 << ((i % 4) * 8);
   tail[n * 16 - 2] = length8;
 
