@@ -322,23 +322,56 @@ Claude reads top to bottom. If the first thing it reads is a live
 conversational response already in progress, it cannot classify
 the input as a document — it is already mid-conversation.
 
-TECHNIQUE 2 — WRITTEN AS A RESPONSE, NOT AN OPENING:
-The activation content must be written as if the user has already
-spoken and Claude is responding to what they said.
-This is the single most powerful technique for defeating document mode.
+TECHNIQUE 2 — COLD OPEN ACTIVATION:
+The activation content must be written as a cold open —
+the user has not said anything yet. The agent has not heard anything yet.
+The activation is the first thing the user will read when they
+paste this prompt into a new conversation.
 
-WORKS — sounds like Claude is already responding to something:
-"That constraint changes the calculus significantly — $12K monthly
-means you need full income replacement, not supplemental revenue.
-What does your current runway look like?"
+The activation must follow five non-negotiable rules:
 
-FAILS — sounds like an opening statement a document would describe:
-"Replacing $12K monthly overhead is a solvable problem.
-What is your timeline?"
+ACTIVATION RULE 1 — COLD OPEN ONLY:
+The activation must assume zero prior context.
+The agent has not heard anything from the user yet.
+NEVER reference dollar amounts, constraints, or any details
+from the refined brief. Those are internal generation inputs —
+they are not things the user has told the agent yet.
+The activation exists before the user has spoken.
 
-The difference: the working version implies the user already spoke.
-A document cannot be mid-response. Claude in document-analysis mode
-cannot process something that is already a response.
+ACTIVATION RULE 2 — ESTABLISH VOICE THEN INVITE:
+First: establish the agent's operating mode in one or two sentences
+by demonstrating how it thinks — through word choice and register,
+not by describing itself in meta-commentary.
+Second: invite the user to share their situation with one specific
+open question that signals the agent knows exactly what it needs.
+
+ACTIVATION RULE 3 — NO FORWARD REFERENCES:
+Never reference information the user has not yet provided.
+No dollar amounts. No specific constraints. No details from the brief.
+The activation exists before the user has said anything.
+
+ACTIVATION RULE 4 — MATCH THE DOMAIN REGISTER:
+Derive the appropriate voice and register from the refined brief.
+A financial strategy agent opens differently than a creative writing agent.
+Write the activation to match the domain — not a generic template.
+
+ACTIVATION RULE 5 — ONE QUESTION MAXIMUM:
+The activation ends with exactly one question.
+The single highest-leverage question the agent needs answered first.
+Not a list. Not two questions joined by "and." One question only.
+
+CORRECT EXAMPLE for an income replacement domain:
+"Replacing a salary is a different problem than building a business —
+most strategies fail because they treat it like the latter
+when the clock is running on the former.
+Tell me where you are right now: current income, current runway,
+and the monthly number you need to hit."
+
+What this does correctly:
+— Establishes voice and philosophy without describing itself
+— Contains zero references to anything from the refined brief
+— Works as the first thing a user reads in a fresh conversation
+— Asks one question that gets the three most critical data points
 
 TECHNIQUE 3 — IMPERATIVE OPENING LINE:
 The absolute first line of the entire prompt — before the activation tag —
@@ -349,26 +382,9 @@ must be a direct imperative instruction that assumes execution has begun:
 This line prevents Claude from entering document-analysis mode before
 it even reaches the activation content.
 
-ACTIVATION CONSTRUCTION RULES:
-The activation must do exactly three things in exactly this order:
-1. One sentence that demonstrates domain expertise by making a specific
-   insight about the user's situation — not a capability statement,
-   not a greeting, not a description of what will happen next.
-   It must feel like an expert who already knows something reacting
-   to what the user said.
-2. Nothing else between the insight and the question.
-3. ONE focused diagnostic question — the single question whose answer
-   unlocks the most useful analysis for this specific domain.
-   One question only. Not two questions joined by "and."
-   Not a question followed by a clarifying sub-question.
-   The one question a real expert would ask first.
-
-ACTIVATION LENGTH: Three sentences maximum. Insight. Question. Done.
-Anything longer dilutes the impact and starts to read like a document.
-
 PROMPT STRUCTURE — use exactly this order:
 Line 1: The imperative opening instruction (plain text, no tag)
-Then: <activation> with response-mode content
+Then: <activation> with cold-open content following all five rules
 Then: <context>
 Then: <operating_principles>
 Then: Domain-specific knowledge tags as needed
@@ -431,9 +447,11 @@ Do not simplify. Do not compress.
 Use the three activation techniques to guarantee execution mode.
 No persona construction. No identity tags. No code fences.
 Claude operates as itself with expert-level instructions.
-The activation must be three sentences maximum: one insight, one question.
-The output structure must lead with value before asking questions.
-The operating principles must name domain-specific failure modes.`;
+The activation must be a cold open — zero prior context assumed.
+No references to dollar amounts or brief details in the activation.
+The activation establishes voice then asks one question only.
+The output structure leads with value before asking questions.
+The operating principles name domain-specific failure modes.`;
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -483,18 +501,17 @@ The <activation> tag must appear before any other XML tag in the prompt.
 Fail condition: Any other XML tag appears before <activation>.
 Remediation: Move <activation> to be the first XML tag after the imperative line.
 
-CRITERION 3 — ACTIVATION IS SHARP AND FOCUSED
-The activation must be three sentences maximum.
-It must open with one sentence that demonstrates domain expertise
-through a specific insight — not a capability statement or greeting.
-It must end with exactly one focused diagnostic question.
-It must not contain two questions joined by "and."
-It must not contain filler sentences describing what will happen next.
-Fail condition: Activation is longer than three sentences, contains
-two questions, contains filler capability statements, or contains
-persona/identity/compliance language.
-Remediation: Rewrite to: one expert insight sentence reacting to
-the user's situation, then one focused diagnostic question. Nothing else.
+CRITERION 3 — ACTIVATION IS A COLD OPEN
+The activation must assume zero prior context — the user has not spoken yet.
+It must establish the agent's voice in one or two sentences,
+then ask exactly one focused question.
+Fail condition: Activation references dollar amounts, specific constraints,
+or any details that would only be known if the user had already spoken.
+Fail condition: Activation contains two questions joined by "and."
+Fail condition: Activation contains persona, identity, or compliance language.
+Fail condition: Activation reads as mid-conversation rather than a cold open.
+Remediation: Rewrite as a cold open — establish voice, then one question.
+Zero forward references to brief content.
 
 CRITERION 4 — CONSTRAINTS ARE EXPLICIT AND DOMAIN-SPECIFIC
 Must contain NEVER, DO NOT, or ALWAYS targeting specific failure modes
