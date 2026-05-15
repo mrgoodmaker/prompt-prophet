@@ -96,7 +96,13 @@ export default function Home() {
   };
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(seedPrompt);
+    // Strip any residual code fence markers before copying
+    // so the prompt pastes as raw instructions, not quoted code
+    const cleanPrompt = seedPrompt
+      .replace(/^```[\w]*\n?/gm, '')
+      .replace(/^```\n?/gm, '')
+      .trim();
+    navigator.clipboard.writeText(cleanPrompt);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
   };
