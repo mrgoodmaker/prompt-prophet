@@ -1,8 +1,8 @@
 // pages/api/subscribe.js
 // Prompt Prophet — Mailchimp email capture handler
 // Adds new subscribers to the Prompt Prophet Leads audience.
-// Returns success for both new subscribers and existing contacts
-// so returning users pass through without friction.
+// Uses PUT (upsert) instead of POST so existing contacts in any
+// status are accepted and updated rather than rejected.
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -24,38 +24,33 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Email service is not configured" });
   }
 
-  const url = `https://${server}.api.mailchimp.com/3.0/lists/${audienceId}/members`;
-
   try {
+    // MD5 hash of lowercase email is required for Mailchimp member upsert
+    const emailHash = await md5(email.toLowerCase().trim());
+    const url = `https://${server}.api.mailchimp.com/3.0/lists/${audienceId}/members/${emailHash}`;
+
     const response = await fetch(url, {
-      method: "POST",
+      method: "PUT",
       headers: {
         "Content-Type": "application/json",
-        // Mailchimp uses HTTP Basic Auth — username is arbitrary, password is the API key
         Authorization: `Basic ${Buffer.from(`anystring:${apiKey}`).toString("base64")}`,
       },
       body: JSON.stringify({
-        email_address: email,
-        status: "subscribed",
+        email_address: email.toLowerCase().trim(),
+        status_if_new: "subscribed",
+        // Do not force status change for existing contacts —
+        // respect their current subscription status
         tags: ["Prompt Prophet"],
       }),
     });
 
     const data = await response.json();
 
-    // 200 = new subscriber added successfully
     if (response.ok) {
-      console.log("Mailchimp: new subscriber added", email);
-      return res.status(200).json({ success: true, status: "subscribed" });
+      console.log("Mailchimp: contact upserted successfully", email, data.status);
+      return res.status(200).json({ success: true, status: data.status });
     }
 
-    // 400 with title "Member Exists" = returning user, pass them through
-    if (response.status === 400 && data.title === "Member Exists") {
-      console.log("Mailchimp: returning user recognized", email);
-      return res.status(200).json({ success: true, status: "existing" });
-    }
-
-    // Any other error from Mailchimp — log detail server-side, return clean message
     console.error("Mailchimp API error:", data.title, data.detail);
     return res.status(400).json({
       error: "We couldn't add that email address. Please try again.",
@@ -67,4 +62,14 @@ export default async function handler(req, res) {
       error: "Something went wrong. Please try again.",
     });
   }
+}
+
+// Native MD5 implementation — no external dependencies required.
+// Mailchimp uses MD5-hashed lowercase email as the member identifier.
+async function md5(str) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(str);
+  const hashBuffer = await crypto.subtle.digest("MD5", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 }
