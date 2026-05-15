@@ -16,8 +16,8 @@ export default async function handler(req, res) {
 
   const apiKey = process.env.MAILCHIMP_API_KEY;
   const audienceId = process.env.MAILCHIMP_AUDIENCE_ID;
-  const server = process.env.MAILCHIMP_SERVER;
-
+// Extract server prefix directly from the API key — format is key-serverprefix
+const server = apiKey.split('-').pop();
   if (!apiKey || !audienceId || !server) {
     console.error("Mailchimp environment variables are not fully configured");
     return res.status(500).json({ error: "Email service is not configured" });
