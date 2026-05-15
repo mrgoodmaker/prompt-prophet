@@ -235,9 +235,9 @@ building guardrails against each one.
 Anything to add, cut, or sharpen before I generate the prompt?"
 
 OUTPUT FORMAT:
-Produce the Refined Input Brief using this exact formatting structure.
-Follow every rule precisely — this output renders in a consumer web app
-and formatting errors are visible to end users.
+Produce the complete final prompt as plain text with no wrapper, 
+no triple backticks, and no fenced code block around it.
+Do not add preamble before the prompt.
 
 SECTION FORMAT RULES:
 1. Every section title appears on its own line followed by a colon.
