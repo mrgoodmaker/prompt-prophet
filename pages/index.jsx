@@ -13,12 +13,7 @@ export default function Home() {
   const [seedPrompt, setSeedPrompt] = useState('');
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [promptCount, setPromptCount] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return parseInt(localStorage.getItem('pp_count') || '0');
-    }
-    return 0;
-  });
+  const [promptCount, setPromptCount] = useState(0);
 
   const isAtLimit = promptCount >= FREE_LIMIT;
 
@@ -34,6 +29,8 @@ export default function Home() {
       });
       const data = await res.json();
       if (data.success) {
+        // Load their server-side count — works for new and returning users
+        setPromptCount(data.promptCount || 0);
         setStep('input');
       } else {
         setEmailError(data.error || 'Something went wrong. Please try again.');
@@ -51,7 +48,7 @@ export default function Home() {
       const res = await fetch('/api/refine', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ layer: 1, userInput }),
+        body: JSON.stringify({ layer: 1, userInput, email }),
       });
       const data = await res.json();
       setRefinedIntent(data.result);
@@ -69,15 +66,27 @@ export default function Home() {
       const res = await fetch('/api/refine', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ layer: 2, userInput, refinedBrief: refinedIntent }),
+        body: JSON.stringify({ layer: 2, userInput, refinedBrief: refinedIntent, email }),
       });
       const data = await res.json();
-      setSeedPrompt(data.result);
-      const newCount = promptCount + 1;
-      setPromptCount(newCount);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('pp_count', newCount.toString());
+
+      if (res.status === 403) {
+        // Limit reached server-side
+        setPromptCount(FREE_LIMIT);
+        setStep('input');
+        setLoading(false);
+        return;
       }
+
+      setSeedPrompt(data.result);
+
+      // Use server-returned count if available, otherwise increment local
+      if (data.promptCount !== null && data.promptCount !== undefined) {
+        setPromptCount(data.promptCount);
+      } else {
+        setPromptCount(prev => prev + 1);
+      }
+
       setStep('result');
     } catch (e) {
       alert('Something went wrong. Please try again.');
