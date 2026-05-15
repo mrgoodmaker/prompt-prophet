@@ -4,7 +4,10 @@ import Head from 'next/head';
 const FREE_LIMIT = 5;
 
 export default function Home() {
-  const [step, setStep] = useState('input');
+  const [step, setStep] = useState('email');
+  const [email, setEmail] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [emailLoading, setEmailLoading] = useState(false);
   const [userInput, setUserInput] = useState('');
   const [refinedIntent, setRefinedIntent] = useState('');
   const [seedPrompt, setSeedPrompt] = useState('');
@@ -19,6 +22,28 @@ export default function Home() {
 
   const isAtLimit = promptCount >= FREE_LIMIT;
 
+  const handleEmailSubmit = async () => {
+    if (!email.trim() || !email.includes('@') || emailLoading) return;
+    setEmailLoading(true);
+    setEmailError('');
+    try {
+      const res = await fetch('/api/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setStep('input');
+      } else {
+        setEmailError(data.error || 'Something went wrong. Please try again.');
+      }
+    } catch (e) {
+      setEmailError('Something went wrong. Please try again.');
+    }
+    setEmailLoading(false);
+  };
+
   const handleRefine = async () => {
     if (!userInput.trim() || loading || isAtLimit) return;
     setLoading(true);
@@ -28,8 +53,8 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ layer: 1, userInput }),
       });
-    const data = await res.json();
-    setRefinedIntent(data.result);
+      const data = await res.json();
+      setRefinedIntent(data.result);
       setStep('confirm');
     } catch (e) {
       alert('Something went wrong. Please try again.');
@@ -47,7 +72,7 @@ export default function Home() {
         body: JSON.stringify({ layer: 2, userInput, refinedBrief: refinedIntent }),
       });
       const data = await res.json();
-setSeedPrompt(data.result);
+      setSeedPrompt(data.result);
       const newCount = promptCount + 1;
       setPromptCount(newCount);
       if (typeof window !== 'undefined') {
@@ -102,9 +127,11 @@ setSeedPrompt(data.result);
             Prompt <span style={styles.navLogoEm}>Prophet</span>
           </div>
           <div style={styles.navRight}>
-            <span style={styles.navCounter}>
-              {isAtLimit ? '⚡ Upgrade for unlimited' : `${FREE_LIMIT - promptCount} free prompts remaining`}
-            </span>
+            {step !== 'email' && (
+              <span style={styles.navCounter}>
+                {isAtLimit ? '⚡ Upgrade for unlimited' : `${FREE_LIMIT - promptCount} free prompts remaining`}
+              </span>
+            )}
             <a href="https://goodcompanion.ai" style={styles.navBadge}>
               🌿 Good Companion
             </a>
@@ -112,6 +139,62 @@ setSeedPrompt(data.result);
         </nav>
 
         <main style={styles.main}>
+
+          {/* STEP: EMAIL GATE */}
+          {step === 'email' && (
+            <>
+              <div style={styles.hero}>
+                <p style={styles.eyebrow}>P.I.E. — Prompt Inception Engine</p>
+                <h1 style={styles.heroTitle}>
+                  You know what you want.<br />
+                  Now <em style={styles.heroEm}>get it</em> from AI.
+                </h1>
+                <p style={styles.heroSub}>
+                  Tell Prophet what you're trying to accomplish. In plain language. No special knowledge required.
+                </p>
+              </div>
+              <div style={styles.card}>
+                <p style={styles.cardLabel}>GET STARTED — FREE</p>
+                <p style={styles.cardHint}>
+                  Enter your email to access Prompt Prophet. Already used it before? Same email gets you right back in.
+                </p>
+                <input
+                  type="email"
+                  style={styles.input}
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleEmailSubmit(); }}
+                  disabled={emailLoading}
+                />
+                {emailError && (
+                  <p style={styles.errorText}>{emailError}</p>
+                )}
+                <div style={styles.inputActions}>
+                  <button
+                    style={{
+                      ...styles.btnPrimary,
+                      opacity: emailLoading || !email.trim() ? 0.6 : 1,
+                      cursor: emailLoading || !email.trim() ? 'not-allowed' : 'pointer',
+                    }}
+                    onClick={handleEmailSubmit}
+                    disabled={emailLoading || !email.trim()}
+                  >
+                    {emailLoading ? 'One moment...' : 'Access Prompt Prophet →'}
+                  </button>
+                </div>
+                <p style={styles.privacyNote}>
+                  No spam. No password. Just your email to get started.
+                </p>
+              </div>
+              <div style={styles.doctrineRow}>
+                <div style={styles.doctrinePill}>🧠 Cognitive Sovereignty</div>
+                <div style={styles.doctrinePill}>🌿 Regenerative by Design</div>
+                <div style={styles.doctrinePill}>✦ Benefit of All</div>
+              </div>
+            </>
+          )}
+
           {/* HERO — only show on input step */}
           {step === 'input' && (
             <div style={styles.hero}>
@@ -127,7 +210,7 @@ setSeedPrompt(data.result);
           )}
 
           {/* PROGRESS BAR */}
-          {step !== 'input' && (
+          {step !== 'email' && step !== 'input' && (
             <div style={styles.progressWrap}>
               {['Capture', 'Confirm', 'Crafting', 'Ready'].map((label, i) => (
                 <div key={label} style={styles.progressItem}>
@@ -145,132 +228,126 @@ setSeedPrompt(data.result);
             </div>
           )}
 
-          {/* CARD */}
-          <div style={styles.card}>
+          {/* CARD — all steps except email */}
+          {step !== 'email' && (
+            <div style={styles.card}>
 
-            {/* STEP: INPUT */}
-            {step === 'input' && (
-              <div>
-                <p style={styles.cardLabel}>LAYER 01 — INTENT CAPTURE</p>
-                <p style={styles.cardHint}>
-                  What are you trying to accomplish? Describe it in your own words — rough, detailed, anywhere in between.
-                </p>
-                <textarea
-                  style={styles.textarea}
-                  placeholder="E.g. I want to write a cold email to a potential investor for my startup but I don't know how to make it compelling without being pushy..."
-                  value={userInput}
-                  onChange={(e) => setUserInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && e.metaKey) handleRefine();
-                  }}
-                  rows={5}
-                  disabled={isAtLimit}
-                />
-                {isAtLimit ? (
-                  <div style={styles.limitBox}>
-                    <p style={styles.limitTitle}>You've used your {FREE_LIMIT} free prompts.</p>
-                    <p style={styles.limitSub}>Upgrade to Pro for unlimited access — $15/month.</p>
-                    <button style={styles.btnPrimary}>Upgrade to Pro →</button>
+              {/* STEP: INPUT */}
+              {step === 'input' && (
+                <div>
+                  <p style={styles.cardLabel}>LAYER 01 — INTENT CAPTURE</p>
+                  <p style={styles.cardHint}>
+                    What are you trying to accomplish? Describe it in your own words — rough, detailed, anywhere in between.
+                  </p>
+                  <textarea
+                    style={styles.textarea}
+                    placeholder="E.g. I want to write a cold email to a potential investor for my startup but I don't know how to make it compelling without being pushy..."
+                    value={userInput}
+                    onChange={(e) => setUserInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && e.metaKey) handleRefine();
+                    }}
+                    rows={5}
+                    disabled={isAtLimit}
+                  />
+                  {isAtLimit ? (
+                    <div style={styles.limitBox}>
+                      <p style={styles.limitTitle}>You've used your {FREE_LIMIT} free prompts.</p>
+                      <p style={styles.limitSub}>Upgrade to Pro for unlimited access — $15/month.</p>
+                      <button style={styles.btnPrimary}>Upgrade to Pro →</button>
+                    </div>
+                  ) : (
+                    <div style={styles.inputActions}>
+                      <button
+                        style={{
+                          ...styles.btnPrimary,
+                          opacity: loading || !userInput.trim() ? 0.6 : 1,
+                          cursor: loading || !userInput.trim() ? 'not-allowed' : 'pointer',
+                        }}
+                        onClick={handleRefine}
+                        disabled={loading || !userInput.trim()}
+                      >
+                        {loading ? 'Prophet is thinking...' : 'Refine My Intent →'}
+                      </button>
+                      <p style={styles.inputHint}>⌘ + Enter to submit</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* STEP: CONFIRM */}
+              {step === 'confirm' && (
+                <div>
+                  <p style={styles.cardLabel}>LAYER 01 — DOES THIS CAPTURE YOUR INTENT?</p>
+                  <p style={styles.cardHint}>
+                    Prophet has refined what you described. Read this carefully — confirm it's right before we go deeper.
+                  </p>
+                  <div style={styles.refinedBox}>
+                    {refinedIntent.split('\n').map((line, i) => {
+                      if (line.trim() === '') return <br key={i} />;
+                      const boldLine = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                      if (line.startsWith('- ')) {
+                        return <li key={i} style={{ fontSize: '14px', color: '#1A1A18', lineHeight: '1.6', marginLeft: '16px', marginBottom: '4px', listStyleType: 'disc' }}>{line.slice(2)}</li>;
+                      }
+                      return <p key={i} style={line.startsWith('**') ? { fontSize: '13px', fontWeight: '600', color: '#B87333', letterSpacing: '0.05em', marginBottom: '4px', marginTop: '16px' } : { fontSize: '15px', color: '#1A1A18', lineHeight: '1.65', marginBottom: '6px' }} dangerouslySetInnerHTML={{ __html: boldLine }} />;
+                    })}
                   </div>
-                ) : (
-                  <div style={styles.inputActions}>
-                    <button
-                      style={{
-                        ...styles.btnPrimary,
-                        opacity: loading || !userInput.trim() ? 0.6 : 1,
-                        cursor: loading || !userInput.trim() ? 'not-allowed' : 'pointer',
-                      }}
-                      onClick={handleRefine}
-                      disabled={loading || !userInput.trim()}
-                    >
-                      {loading ? 'Prophet is thinking...' : 'Refine My Intent →'}
+                  <div style={styles.confirmActions}>
+                    <button style={styles.btnPrimary} onClick={handleConfirm} disabled={loading}>
+                      {loading ? 'Building your prompt...' : "Yes, that's it — Generate My Prompt →"}
                     </button>
-                    <p style={styles.inputHint}>⌘ + Enter to submit</p>
+                    <button style={styles.btnSecondary} onClick={handleEdit}>
+                      ← Let me adjust
+                    </button>
                   </div>
-                )}
-              </div>
-            )}
-
-            {/* STEP: CONFIRM */}
-            {step === 'confirm' && (
-              <div>
-                <p style={styles.cardLabel}>LAYER 01 — DOES THIS CAPTURE YOUR INTENT?</p>
-                <p style={styles.cardHint}>
-                  Prophet has refined what you described. Read this carefully — confirm it's right before we go deeper.
-                </p>
-                <div style={styles.refinedBox}>
-  {refinedIntent.split('\n').map((line, i) => {
-    if (line.trim() === '') return <br key={i} />;
-    const boldLine = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    if (line.startsWith('- ')) {
-return <li key={i} style={{fontSize:'14px',color:'#1A1A18',lineHeight:'1.6',marginLeft:'16px',marginBottom:'4px',listStyleType:'disc'}}>{line.slice(2)}</li>;
-    }
-return <p key={i} style={line.startsWith('**') ? {fontSize:'13px',fontWeight:'600',color:'#B87333',letterSpacing:'0.05em',marginBottom:'4px',marginTop:'16px'} : {fontSize:'15px',color:'#1A1A18',lineHeight:'1.65',marginBottom:'6px'}} dangerouslySetInnerHTML={{__html: boldLine}} />;
-  })}
-</div>
-                <div style={styles.confirmActions}>
-                  <button style={styles.btnPrimary} onClick={handleConfirm} disabled={loading}>
-                    {loading ? 'Building your prompt...' : 'Yes, that\'s it — Generate My Prompt →'}
-                  </button>
-                  <button style={styles.btnSecondary} onClick={handleEdit}>
-                    ← Let me adjust
-                  </button>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* STEP: INVISIBLE LAYER */}
-            {step === 'invisible' && (
-              <div style={styles.invisibleWrap}>
-                <div style={styles.invisibleInner}>
-                  <div style={styles.orbWrap}>
-                    <div style={styles.orb} />
+              {/* STEP: INVISIBLE LAYER */}
+              {step === 'invisible' && (
+                <div style={styles.invisibleWrap}>
+                  <div style={styles.invisibleInner}>
+                    <div style={styles.orbWrap}>
+                      <div style={styles.orb} />
+                    </div>
+                    <p style={styles.invisibleLabel}>LAYER 02 — EXPERT ARCHITECTURE</p>
+                    <p style={styles.invisibleTitle}>Prophet is working.</p>
+                    <p style={styles.invisibleSub}>
+                      This layer is invisible by design. Expert prompt architecture is being applied to your intent. You'll feel the result — not see the process.
+                    </p>
                   </div>
-                  <p style={styles.invisibleLabel}>LAYER 02 — EXPERT ARCHITECTURE</p>
-                  <p style={styles.invisibleTitle}>Prophet is working.</p>
-                  <p style={styles.invisibleSub}>
-                    This layer is invisible by design. Expert prompt architecture is being applied to your intent. You'll feel the result — not see the process.
+                </div>
+              )}
+
+              {/* STEP: RESULT */}
+              {step === 'result' && (
+                <div>
+                  <p style={styles.cardLabel}>LAYER 03 — YOUR PRECISION PROMPT</p>
+                  <p style={styles.cardHint}>
+                    This prompt is engineered to get you the best possible result from any AI tool. Copy it and paste it directly into ChatGPT, Claude, Gemini — anywhere.
                   </p>
+                  <div style={styles.resultBox}>
+                    <pre style={styles.resultText}>{seedPrompt}</pre>
+                  </div>
+                  <div style={styles.resultActions}>
+                    <button style={styles.btnPrimary} onClick={handleCopy}>
+                      {copied ? '✓ Copied to clipboard' : 'Copy Prompt'}
+                    </button>
+                    <button style={styles.btnSecondary} onClick={handleReset}>
+                      Start a new prompt
+                    </button>
+                  </div>
+                  <div style={styles.shareRow}>
+                    <p style={styles.shareText}>
+                      🌿 Built by <a href="https://goodcompanion.ai" style={styles.shareLink}>Good Companion</a> — AI that makes you more yourself.
+                    </p>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* STEP: RESULT */}
-            {step === 'result' && (
-              <div>
-                <p style={styles.cardLabel}>LAYER 03 — YOUR PRECISION PROMPT</p>
-                <p style={styles.cardHint}>
-                  This prompt is engineered to get you the best possible result from any AI tool. Copy it and paste it directly into ChatGPT, Claude, Gemini — anywhere.
-                </p>
-                <div style={styles.resultBox}>
-                  <pre style={styles.resultText}>{seedPrompt}</pre>
-                </div>
-                <div style={styles.resultActions}>
-                  <button style={styles.btnPrimary} onClick={handleCopy}>
-                    {copied ? '✓ Copied to clipboard' : 'Copy Prompt'}
-                  </button>
-                  <button style={styles.btnSecondary} onClick={handleReset}>
-                    Start a new prompt
-                  </button>
-                </div>
-                <div style={styles.shareRow}>
-                  <p style={styles.shareText}>
-                    🌿 Built by <a href="https://goodcompanion.ai" style={styles.shareLink}>Good Companion</a> — AI that makes you more yourself.
-                  </p>
-                </div>
-              </div>
-            )}
-
-          </div>
-
-          {/* FOOTER DOCTRINE */}
-          {step === 'input' && (
-            <div style={styles.doctrineRow}>
-              <div style={styles.doctrinePill}>🧠 Cognitive Sovereignty</div>
-              <div style={styles.doctrinePill}>🌿 Regenerative by Design</div>
-              <div style={styles.doctrinePill}>✦ Benefit of All</div>
             </div>
           )}
+
         </main>
       </div>
     </>
@@ -410,6 +487,21 @@ const styles = {
     marginBottom: '20px',
     fontWeight: '300',
   },
+  input: {
+    width: '100%',
+    padding: '16px',
+    border: '1.5px solid #E4DBCF',
+    borderRadius: '12px',
+    background: '#FDF9F3',
+    fontFamily: "'DM Sans', sans-serif",
+    fontSize: '15px',
+    color: '#1A1A18',
+    lineHeight: '1.6',
+    outline: 'none',
+    boxSizing: 'border-box',
+    transition: 'border-color 0.2s',
+    marginBottom: '8px',
+  },
   textarea: {
     width: '100%',
     padding: '16px',
@@ -434,6 +526,18 @@ const styles = {
   inputHint: {
     fontSize: '12px',
     color: '#A89F96',
+  },
+  errorText: {
+    fontSize: '13px',
+    color: '#C0392B',
+    marginTop: '4px',
+    marginBottom: '4px',
+  },
+  privacyNote: {
+    fontSize: '12px',
+    color: '#A89F96',
+    marginTop: '16px',
+    textAlign: 'center',
   },
   btnPrimary: {
     background: '#B87333',
@@ -466,13 +570,6 @@ const styles = {
     borderRadius: '12px',
     padding: '20px',
     marginBottom: '20px',
-  },
-  refinedText: {
-    fontSize: '16px',
-    color: '#1A1A18',
-    lineHeight: '1.7',
-    fontStyle: 'italic',
-    fontFamily: "'Lora', serif",
   },
   confirmActions: {
     display: 'flex',
