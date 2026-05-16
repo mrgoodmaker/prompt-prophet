@@ -165,6 +165,8 @@ export default function Home() {
   const handleConfirm = async () => {
     setLoading(true);
     setStep('invisible');
+    // Optimistically decrement count so nav updates immediately
+    setPromptCount(prev => Math.min(prev + 1, FREE_LIMIT));
     try {
       const res = await fetch('/api/refine', {
         method: 'POST',
@@ -182,13 +184,12 @@ export default function Home() {
       if (data.globalPromptNumber) setGlobalPromptNumber(data.globalPromptNumber);
       if (data.promptCount !== null && data.promptCount !== undefined) {
         setPromptCount(data.promptCount);
-      } else {
-        setPromptCount(prev => prev + 1);
       }
       setStep('result');
     } catch (e) {
       alert('Something went wrong. Please try again.');
       setStep('confirm');
+      setPromptCount(prev => Math.max(prev - 1, 0));
     }
     setLoading(false);
   };
@@ -214,14 +215,13 @@ export default function Home() {
     setSeedPrompt('');
   };
 
-  // Returns to confirm screen with brief intact
   const handleCancelToConfirm = () => {
     setLoading(false);
     setStep('confirm');
     setShowCancel(false);
+    setPromptCount(prev => Math.max(prev - 1, 0));
   };
 
-  // Returns to confirm screen from result to refine
   const handleRefineAgain = () => {
     setStep('confirm');
     setSeedPrompt('');
@@ -232,6 +232,8 @@ export default function Home() {
   const progressSteps = ['input', 'confirm', 'invisible', 'result'];
   const currentStepIndex = progressSteps.indexOf(step);
 
+  const remainingPrompts = FREE_LIMIT - promptCount;
+
   return (
     <>
       <Head>
@@ -241,60 +243,6 @@ export default function Home() {
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="true" />
         <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
-        <style>{`
-          @keyframes orbPulse {
-            0%, 100% { transform: scale(1); box-shadow: 0 16px 48px rgba(184,115,51,0.4); }
-            50% { transform: scale(1.08); box-shadow: 0 20px 60px rgba(184,115,51,0.6); }
-          }
-          @keyframes orbRotate {
-            0% { filter: hue-rotate(0deg) brightness(1); }
-            50% { filter: hue-rotate(15deg) brightness(1.1); }
-            100% { filter: hue-rotate(0deg) brightness(1); }
-          }
-          .orb-animated {
-            animation: orbPulse 2.5s ease-in-out infinite, orbRotate 4s ease-in-out infinite;
-          }
-          @keyframes fadeInOut {
-            0%, 100% { opacity: 0.5; }
-            50% { opacity: 1; }
-          }
-          .stage-pulse {
-            animation: fadeInOut 2s ease-in-out infinite;
-          }
-          @keyframes borderPulse {
-            0%, 100% { border-color: #E4DBCF; }
-            50% { border-color: #B87333; }
-          }
-          .card-loading {
-            animation: borderPulse 2s ease-in-out infinite;
-          }
-          @keyframes dotPulse {
-            0%, 100% { opacity: 0.3; transform: scale(0.8); }
-            50% { opacity: 1; transform: scale(1.3); }
-          }
-          .btn-dot {
-            display: inline-block;
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: rgba(255,255,255,0.9);
-            margin-left: 8px;
-            vertical-align: middle;
-            animation: dotPulse 1.2s ease-in-out infinite;
-          }
-          .fade-transition {
-            transition: opacity 0.5s ease;
-          }
-          .visible { opacity: 1; }
-          .hidden { opacity: 0; }
-          @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-          }
-          .fade-in {
-            animation: fadeIn 0.8s ease forwards;
-          }
-        `}</style>
       </Head>
 
       <div style={styles.page}>
@@ -305,7 +253,10 @@ export default function Home() {
           <div style={styles.navRight}>
             {step !== 'email' && (
               <span style={styles.navCounter}>
-                {isAtLimit ? 'Limit reached — resets tomorrow' : `${FREE_LIMIT - promptCount} of ${FREE_LIMIT} daily prompts remaining`}
+                {isAtLimit
+                  ? 'Limit reached — resets tomorrow'
+                  : `${remainingPrompts} of ${FREE_LIMIT} daily prompts remaining`
+                }
               </span>
             )}
             <a href={GC_URL} style={styles.navBadge}>
@@ -859,7 +810,7 @@ const styles = {
   invisibleWrap: {
     display: 'flex',
     justifyContent: 'center',
-    padding: '20px 0',
+    padding: '12px 0',
   },
   invisibleInner: {
     textAlign: 'center',
@@ -869,7 +820,7 @@ const styles = {
   orbWrap: {
     display: 'flex',
     justifyContent: 'center',
-    marginBottom: '24px',
+    marginBottom: '20px',
   },
   orb: {
     width: '72px',
@@ -883,38 +834,37 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     gap: '8px',
-    marginBottom: '6px',
-    minHeight: '24px',
+    marginBottom: '8px',
+    minHeight: '28px',
   },
   stagePip: {
-    width: '5px',
-    height: '5px',
+    width: '6px',
+    height: '6px',
     borderRadius: '50%',
     background: '#B87333',
     flexShrink: 0,
   },
   stageText: {
-    fontSize: '12px',
+    fontSize: '15px',
     color: '#B87333',
-    fontWeight: '600',
-    letterSpacing: '0.06em',
-    textTransform: 'uppercase',
+    fontWeight: '500',
+    letterSpacing: '0.02em',
     textAlign: 'center',
     margin: 0,
   },
   invisibleTitle: {
     fontFamily: "'Lora', serif",
-    fontSize: '26px',
+    fontSize: '22px',
     fontWeight: '500',
-    color: '#1A1A18',
-    marginBottom: '20px',
-    marginTop: '8px',
+    color: '#A89F96',
+    marginBottom: '16px',
+    marginTop: '4px',
   },
   dividerLine: {
     width: '32px',
     height: '1px',
     background: '#E4DBCF',
-    margin: '0 auto 20px',
+    margin: '0 auto 16px',
   },
   missionLabel: {
     fontSize: '9px',
@@ -922,15 +872,15 @@ const styles = {
     letterSpacing: '0.15em',
     textTransform: 'uppercase',
     color: '#C4B8A8',
-    marginBottom: '10px',
+    marginBottom: '8px',
   },
   missionWrap: {
-    minHeight: '80px',
+    minHeight: '72px',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: '16px',
+    marginBottom: '12px',
     padding: '0 8px',
   },
   missionText: {
@@ -944,8 +894,8 @@ const styles = {
   },
   gcSeedRow: {
     borderTop: '1px solid #E4DBCF',
-    paddingTop: '16px',
-    marginBottom: '12px',
+    paddingTop: '12px',
+    marginBottom: '8px',
   },
   gcSeedText: {
     fontSize: '13px',
