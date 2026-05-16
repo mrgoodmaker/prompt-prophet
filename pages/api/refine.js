@@ -1,6 +1,5 @@
 // pages/api/refine.js
 // Prompt Prophet — Layer 1 and Layer 2 API Handler
-// Production-ready for Pages Router + raw fetch + claude-sonnet-4-20250514
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -52,11 +51,13 @@ export default async function handler(req, res) {
         await incrementPromptCount(email);
       }
 
+      const globalCount = await incrementGlobalCount();
       const newCount = email ? await getPromptCount(email) : null;
 
       return res.status(200).json({
         result: response,
         promptCount: newCount,
+        globalPromptNumber: globalCount,
       });
     }
 
@@ -73,7 +74,7 @@ export default async function handler(req, res) {
 }
 
 // ─────────────────────────────────────────────
-// REDIS PROMPT COUNT HELPERS
+// REDIS HELPERS — PER USER
 // ─────────────────────────────────────────────
 
 async function getPromptCount(email) {
@@ -111,6 +112,30 @@ async function incrementPromptCount(email) {
     });
   } catch (error) {
     console.error("Redis incrementPromptCount error:", error.message);
+  }
+}
+
+// ─────────────────────────────────────────────
+// REDIS HELPERS — GLOBAL COUNTER
+// ─────────────────────────────────────────────
+
+async function incrementGlobalCount() {
+  const kvUrl = process.env.KV_REST_API_URL;
+  const kvToken = process.env.KV_REST_API_TOKEN;
+  if (!kvUrl || !kvToken) return 800;
+
+  try {
+    const response = await fetch(`${kvUrl}/incr/pp_global_count`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${kvToken}` },
+    });
+    const data = await response.json();
+    const rawCount = parseInt(data.result) || 1;
+    // Seed offset — makes the number feel like an established system
+    return rawCount + 799;
+  } catch (error) {
+    console.error("Redis incrementGlobalCount error:", error.message);
+    return 800;
   }
 }
 
