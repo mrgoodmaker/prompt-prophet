@@ -5,6 +5,7 @@ const FREE_LIMIT = 5;
 
 const WAITLIST_URL = 'https://prompt-prophet-pro.carrd.co';
 const INSTAGRAM_URL = 'https://instagram.com/goodcompanion.ai';
+const GC_URL = 'https://goodcompanion.ai';
 
 const MISSION_STATEMENTS = [
   "The average AI query uses as much water as a small bottle of drinking water. Multiply that by billions of daily queries. Good Companion is building toward a model that accounts for what it costs the planet to think.",
@@ -54,6 +55,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [promptCount, setPromptCount] = useState(0);
+  const [globalPromptNumber, setGlobalPromptNumber] = useState(null);
   const [missionIndex, setMissionIndex] = useState(0);
   const [missionVisible, setMissionVisible] = useState(true);
   const [stageIndex, setStageIndex] = useState(0);
@@ -64,7 +66,6 @@ export default function Home() {
 
   const isAtLimit = promptCount >= FREE_LIMIT;
 
-  // Mission statement cycling — independent loop
   useEffect(() => {
     if (step !== 'invisible') return;
     const interval = setInterval(() => {
@@ -77,13 +78,11 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [step]);
 
-  // Stage progression — single pass, hold on last
   useEffect(() => {
     if (step !== 'invisible') return;
     setStageDone(false);
     setStageIndex(0);
     setStageVisible(true);
-
     let current = 0;
     const advance = () => {
       if (current < PROPHET_STAGES.length - 1) {
@@ -104,7 +103,6 @@ export default function Home() {
     return () => clearTimeout(stageTimerRef.current);
   }, [step]);
 
-  // Ambient counter
   useEffect(() => {
     if (step !== 'invisible') return;
     const interval = setInterval(() => {
@@ -113,7 +111,6 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [step]);
 
-  // Reset on leaving invisible
   useEffect(() => {
     if (step !== 'invisible') {
       setMissionIndex(0);
@@ -182,6 +179,9 @@ export default function Home() {
         return;
       }
       setSeedPrompt(data.result);
+      if (data.globalPromptNumber) {
+        setGlobalPromptNumber(data.globalPromptNumber);
+      }
       if (data.promptCount !== null && data.promptCount !== undefined) {
         setPromptCount(data.promptCount);
       } else {
@@ -207,6 +207,7 @@ export default function Home() {
     setRefinedIntent('');
     setSeedPrompt('');
     setCopied(false);
+    setGlobalPromptNumber(null);
   };
 
   const handleEdit = () => {
@@ -287,7 +288,7 @@ export default function Home() {
                 {isAtLimit ? 'Upgrade for unlimited' : `${FREE_LIMIT - promptCount} free prompts remaining`}
               </span>
             )}
-            <a href="https://goodcompanion.ai" style={styles.navBadge}>
+            <a href={GC_URL} style={styles.navBadge}>
               🌿 Good Companion
             </a>
           </div>
@@ -477,8 +478,6 @@ export default function Home() {
                     <div style={styles.orbWrap}>
                       <div className="orb-animated" style={styles.orb} />
                     </div>
-                    <p style={styles.invisibleLabel}>LAYER 02 — EXPERT ARCHITECTURE</p>
-                    <p style={styles.invisibleTitle}>Prophet is working.</p>
 
                     <div style={styles.stageWrap}>
                       <div style={styles.stagePip} />
@@ -489,6 +488,8 @@ export default function Home() {
                         {PROPHET_STAGES[stageIndex]}
                       </p>
                     </div>
+
+                    <p style={styles.invisibleTitle}>Prophet is working.</p>
 
                     <div style={styles.dividerLine} />
 
@@ -520,15 +521,24 @@ export default function Home() {
 
               {step === 'result' && (
                 <div>
+                  {globalPromptNumber && (
+                    <div style={styles.promptNumberRow}>
+                      <p style={styles.promptNumberLabel}>PROMPT #{globalPromptNumber.toLocaleString()} — DELIVERED</p>
+                    </div>
+                  )}
+
                   <p style={styles.cardLabel}>LAYER 03 — YOUR PRECISION PROMPT</p>
+
                   <div style={styles.pieStatement}>
                     <p style={styles.pieStatementText}>
                       This prompt was engineered by Prompt Prophet's P.I.E. — Prompt Inception Engine. It's been architecturally designed to activate your AI of choice at its highest capability level. Paste it into any AI tool and experience the difference precision prompting makes.
                     </p>
                   </div>
+
                   <div style={styles.resultBox}>
                     <pre style={styles.resultText}>{cleanPrompt(seedPrompt)}</pre>
                   </div>
+
                   <div style={styles.resultActions}>
                     <button style={styles.btnPrimary} onClick={handleCopy}>
                       {copied ? 'Copied to clipboard' : 'Copy Prompt'}
@@ -537,9 +547,24 @@ export default function Home() {
                       Start a new prompt
                     </button>
                   </div>
+
+                  <div style={styles.regenerativeBlock}>
+                    <p style={styles.regenerativeEyebrow}>GOOD COMPANION</p>
+                    <p style={styles.regenerativeHeadline}>
+                      Every other AI company is racing to build <em style={styles.regenerativeEm}>bigger.</em><br />
+                      We're building <em style={styles.regenerativeEm}>different.</em>
+                    </p>
+                    <p style={styles.regenerativeBody}>
+                      We call it Regenerative AI — a model designed to give back more than it takes from people, communities, and the planet. Most people haven't heard that term yet. They will.
+                    </p>
+                    <a href={GC_URL} target="_blank" rel="noopener noreferrer" style={styles.regenerativeBtn}>
+                      Explore Regenerative AI →
+                    </a>
+                  </div>
+
                   <div style={styles.shareRow}>
                     <p style={styles.shareText}>
-                      🌿 Built by <a href="https://goodcompanion.ai" style={styles.shareLink}>Good Companion</a> — AI that makes you more yourself.
+                      🌿 Built by <a href={GC_URL} style={styles.shareLink}>Good Companion</a> — AI that makes you more yourself.
                     </p>
                   </div>
                 </div>
@@ -790,67 +815,62 @@ const styles = {
   invisibleWrap: {
     display: 'flex',
     justifyContent: 'center',
-    padding: '40px 0',
+    padding: '20px 0',
   },
   invisibleInner: {
     textAlign: 'center',
     maxWidth: '440px',
+    width: '100%',
   },
   orbWrap: {
     display: 'flex',
     justifyContent: 'center',
-    marginBottom: '28px',
+    marginBottom: '24px',
   },
   orb: {
-    width: '80px',
-    height: '80px',
+    width: '72px',
+    height: '72px',
     borderRadius: '50%',
     background: 'radial-gradient(circle at 35% 35%, #D4924A, #B87333, #1E3A2F)',
     boxShadow: '0 16px 48px rgba(184,115,51,0.4)',
-  },
-  invisibleLabel: {
-    fontSize: '10px',
-    fontWeight: '600',
-    letterSpacing: '0.2em',
-    textTransform: 'uppercase',
-    color: '#B87333',
-    marginBottom: '12px',
-  },
-  invisibleTitle: {
-    fontFamily: "'Lora', serif",
-    fontSize: '28px',
-    fontWeight: '500',
-    color: '#1A1A18',
-    marginBottom: '20px',
   },
   stageWrap: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     gap: '8px',
-    marginBottom: '8px',
-    minHeight: '28px',
+    marginBottom: '6px',
+    minHeight: '24px',
   },
   stagePip: {
-    width: '6px',
-    height: '6px',
+    width: '5px',
+    height: '5px',
     borderRadius: '50%',
     background: '#B87333',
     flexShrink: 0,
   },
   stageText: {
-    fontSize: '14px',
+    fontSize: '12px',
     color: '#B87333',
     fontWeight: '600',
-    letterSpacing: '0.02em',
+    letterSpacing: '0.06em',
+    textTransform: 'uppercase',
     textAlign: 'center',
     margin: 0,
   },
+  invisibleTitle: {
+    fontFamily: "'Lora', serif",
+    fontSize: '26px',
+    fontWeight: '500',
+    color: '#1A1A18',
+    marginBottom: '20px',
+    marginTop: '8px',
+  },
   dividerLine: {
-    width: '40px',
+    width: '32px',
     height: '1px',
     background: '#E4DBCF',
-    margin: '16px auto',
+    margin: '0 auto 20px',
   },
   missionLabel: {
     fontSize: '9px',
@@ -861,12 +881,13 @@ const styles = {
     marginBottom: '10px',
   },
   missionWrap: {
-    minHeight: '90px',
+    minHeight: '80px',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: '20px',
+    marginBottom: '16px',
+    padding: '0 8px',
   },
   missionText: {
     fontSize: '13px',
@@ -881,9 +902,9 @@ const styles = {
     marginBottom: '16px',
   },
   ambientCountText: {
-    fontSize: '11px',
+    fontSize: '10px',
     color: '#C4B8A8',
-    letterSpacing: '0.08em',
+    letterSpacing: '0.1em',
     textTransform: 'uppercase',
   },
   gcSeedRow: {
@@ -898,6 +919,19 @@ const styles = {
     color: '#B87333',
     textDecoration: 'none',
     fontWeight: '500',
+  },
+  promptNumberRow: {
+    marginBottom: '16px',
+    paddingBottom: '16px',
+    borderBottom: '1px solid #F0E8DC',
+  },
+  promptNumberLabel: {
+    fontSize: '11px',
+    fontWeight: '600',
+    letterSpacing: '0.2em',
+    textTransform: 'uppercase',
+    color: '#B87333',
+    margin: 0,
   },
   pieStatement: {
     background: 'linear-gradient(135deg, #FDF9F3, #F5ECD9)',
@@ -935,7 +969,56 @@ const styles = {
     display: 'flex',
     gap: '12px',
     flexWrap: 'wrap',
+    marginBottom: '28px',
+  },
+  regenerativeBlock: {
+    background: '#1E3A2F',
+    borderRadius: '16px',
+    padding: '28px 32px',
+    marginBottom: '24px',
+    textAlign: 'center',
+  },
+  regenerativeEyebrow: {
+    fontSize: '10px',
+    fontWeight: '600',
+    letterSpacing: '0.2em',
+    textTransform: 'uppercase',
+    color: '#7BAE8A',
+    marginBottom: '12px',
+  },
+  regenerativeHeadline: {
+    fontFamily: "'Lora', serif",
+    fontSize: '22px',
+    fontWeight: '500',
+    color: '#F8F4EE',
+    lineHeight: '1.3',
+    marginBottom: '12px',
+  },
+  regenerativeEm: {
+    color: '#B87333',
+    fontStyle: 'italic',
+  },
+  regenerativeBody: {
+    fontSize: '14px',
+    color: '#A8C4B0',
+    lineHeight: '1.65',
+    fontWeight: '300',
     marginBottom: '20px',
+    maxWidth: '420px',
+    margin: '0 auto 20px',
+  },
+  regenerativeBtn: {
+    display: 'inline-block',
+    background: '#B87333',
+    color: 'white',
+    padding: '12px 28px',
+    borderRadius: '100px',
+    fontFamily: "'DM Sans', sans-serif",
+    fontSize: '14px',
+    fontWeight: '500',
+    textDecoration: 'none',
+    boxShadow: '0 4px 16px rgba(184,115,51,0.4)',
+    transition: 'all 0.2s',
   },
   shareRow: {
     borderTop: '1px solid #E4DBCF',
