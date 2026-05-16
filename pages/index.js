@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 
 const FREE_LIMIT = 5;
-
 const WAITLIST_URL = 'https://prompt-prophet-pro.carrd.co';
 const INSTAGRAM_URL = 'https://instagram.com/goodcompanion.ai';
 const GC_URL = 'https://goodcompanion.ai';
@@ -62,10 +61,13 @@ export default function Home() {
   const [stageVisible, setStageVisible] = useState(true);
   const [stageDone, setStageDone] = useState(false);
   const [ambientCount, setAmbientCount] = useState(SEED_COUNT);
+  const [showCancel, setShowCancel] = useState(false);
   const stageTimerRef = useRef(null);
+  const cancelTimerRef = useRef(null);
 
   const isAtLimit = promptCount >= FREE_LIMIT;
 
+  // Mission statement cycling
   useEffect(() => {
     if (step !== 'invisible') return;
     const interval = setInterval(() => {
@@ -78,6 +80,7 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [step]);
 
+  // Stage progression — single pass, hold on last
   useEffect(() => {
     if (step !== 'invisible') return;
     setStageDone(false);
@@ -103,6 +106,7 @@ export default function Home() {
     return () => clearTimeout(stageTimerRef.current);
   }, [step]);
 
+  // Ambient counter
   useEffect(() => {
     if (step !== 'invisible') return;
     const interval = setInterval(() => {
@@ -111,6 +115,17 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [step]);
 
+  // Show cancel link after 5 seconds on invisible layer
+  useEffect(() => {
+    if (step !== 'invisible') {
+      setShowCancel(false);
+      return;
+    }
+    cancelTimerRef.current = setTimeout(() => setShowCancel(true), 5000);
+    return () => clearTimeout(cancelTimerRef.current);
+  }, [step]);
+
+  // Reset on leaving invisible
   useEffect(() => {
     if (step !== 'invisible') {
       setMissionIndex(0);
@@ -179,9 +194,7 @@ export default function Home() {
         return;
       }
       setSeedPrompt(data.result);
-      if (data.globalPromptNumber) {
-        setGlobalPromptNumber(data.globalPromptNumber);
-      }
+      if (data.globalPromptNumber) setGlobalPromptNumber(data.globalPromptNumber);
       if (data.promptCount !== null && data.promptCount !== undefined) {
         setPromptCount(data.promptCount);
       } else {
@@ -214,6 +227,12 @@ export default function Home() {
     setStep('input');
     setRefinedIntent('');
     setSeedPrompt('');
+  };
+
+  const handleCancel = () => {
+    setLoading(false);
+    setStep('input');
+    setShowCancel(false);
   };
 
   const progressSteps = ['input', 'confirm', 'invisible', 'result'];
@@ -274,6 +293,13 @@ export default function Home() {
           }
           .visible { opacity: 1; }
           .hidden { opacity: 0; }
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+          .fade-in {
+            animation: fadeIn 0.8s ease forwards;
+          }
         `}</style>
       </Head>
 
@@ -285,7 +311,7 @@ export default function Home() {
           <div style={styles.navRight}>
             {step !== 'email' && (
               <span style={styles.navCounter}>
-                {isAtLimit ? 'Upgrade for unlimited' : `${FREE_LIMIT - promptCount} free prompts remaining`}
+                {isAtLimit ? 'Limit reached — resets tomorrow' : `${FREE_LIMIT - promptCount} of ${FREE_LIMIT} daily prompts remaining`}
               </span>
             )}
             <a href={GC_URL} style={styles.navBadge}>
@@ -406,11 +432,17 @@ export default function Home() {
                   )}
                   {isAtLimit ? (
                     <div style={styles.limitBox}>
-                      <p style={styles.limitTitle}>You've used your {FREE_LIMIT} free prompts.</p>
-                      <p style={styles.limitSub}>Prompt Prophet Pro is coming — unlimited prompts, priority access, and early pricing locked in for founding members.</p>
+                      <p style={styles.limitTitle}>You've used all 5 of today's free prompts.</p>
+                      <p style={styles.limitSub}>Your prompts reset tomorrow morning. Or upgrade to Prophet Pro and never hit a limit again.</p>
+                      <div style={styles.limitPricing}>
+                        <p style={styles.limitPricingText}>
+                          <span style={styles.limitPricingHighlight}>Prophet Pro — $15/month.</span> Unlimited prompts every day. Founding members lock that price for life.
+                        </p>
+                      </div>
                       <a href={WAITLIST_URL} target="_blank" rel="noopener noreferrer" style={styles.btnPrimary}>
-                        Join the Waitlist
+                        Join the Founding Waitlist
                       </a>
+                      <p style={styles.limitResetNote}>Free tier resets daily at midnight UTC.</p>
                     </div>
                   ) : (
                     <div style={styles.inputActions}>
@@ -466,7 +498,7 @@ export default function Home() {
                       }
                     </button>
                     <button style={styles.btnSecondary} onClick={handleEdit} disabled={loading}>
-                      Let me adjust
+                      ← Edit my input
                     </button>
                   </div>
                 </div>
@@ -515,6 +547,14 @@ export default function Home() {
                         </a>
                       </p>
                     </div>
+
+                    {showCancel && (
+                      <div className="fade-in" style={styles.cancelRow}>
+                        <button onClick={handleCancel} style={styles.cancelBtn}>
+                          Cancel and start over
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -910,6 +950,7 @@ const styles = {
   gcSeedRow: {
     borderTop: '1px solid #E4DBCF',
     paddingTop: '16px',
+    marginBottom: '12px',
   },
   gcSeedText: {
     fontSize: '13px',
@@ -919,6 +960,19 @@ const styles = {
     color: '#B87333',
     textDecoration: 'none',
     fontWeight: '500',
+  },
+  cancelRow: {
+    marginTop: '16px',
+  },
+  cancelBtn: {
+    background: 'none',
+    border: 'none',
+    color: '#C4B8A8',
+    fontSize: '12px',
+    cursor: 'pointer',
+    textDecoration: 'underline',
+    fontFamily: "'DM Sans', sans-serif",
+    padding: 0,
   },
   promptNumberRow: {
     marginBottom: '16px',
@@ -1052,6 +1106,29 @@ const styles = {
     color: '#6B6258',
     marginBottom: '16px',
     lineHeight: '1.6',
+  },
+  limitPricing: {
+    background: '#FFFFFF',
+    border: '1px solid #E4DBCF',
+    borderRadius: '10px',
+    padding: '12px 16px',
+    marginBottom: '16px',
+  },
+  limitPricingText: {
+    fontSize: '13px',
+    color: '#6B6258',
+    lineHeight: '1.6',
+    margin: 0,
+  },
+  limitPricingHighlight: {
+    color: '#1A1A18',
+    fontWeight: '500',
+  },
+  limitResetNote: {
+    fontSize: '11px',
+    color: '#C4B8A8',
+    marginTop: '12px',
+    letterSpacing: '0.04em',
   },
   doctrineRow: {
     display: 'flex',
