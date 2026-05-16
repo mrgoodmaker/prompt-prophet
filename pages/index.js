@@ -250,9 +250,9 @@ export default function Home() {
                 </p>
               </div>
               <div style={styles.doctrineRow}>
-                <div style={styles.doctrinePill}>Cognitive Sovereignty</div>
-                <div style={styles.doctrinePill}>Regenerative by Design</div>
-                <div style={styles.doctrinePill}>Benefit of All</div>
+                <div style={styles.doctrinePill}>🧠 Cognitive Sovereignty</div>
+                <div style={styles.doctrinePill}>🌿 Regenerative by Design</div>
+                <div style={styles.doctrinePill}>✦ Benefit of All</div>
               </div>
             </>
           )}
