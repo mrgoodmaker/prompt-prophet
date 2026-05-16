@@ -313,7 +313,7 @@ export default function Home() {
                       <p style={styles.limitTitle}>You have used your {FREE_LIMIT} free prompts.</p>
                       <p style={styles.limitSub}>Prompt Prophet Pro is coming — unlimited prompts, priority access, and early pricing locked in for founding members.</p>
                       
-                        href="https://prompt-prophet-pro.carrd.co"
+                       <a href="https://prompt-prophet-pro.carrd.co"
                         target="_blank"
                         rel="noopener noreferrer"
                         style={styles.btnPrimary}
@@ -387,7 +387,7 @@ export default function Home() {
                       <p style={styles.gcSeedText}>
                         Follow our story at{' '}
                         
-                          href="https://instagram.com/goodcompanion.ai"
+                        <a  href="https://instagram.com/goodcompanion.ai"
                           target="_blank"
                           rel="noopener noreferrer"
                           style={styles.gcSeedLink}
