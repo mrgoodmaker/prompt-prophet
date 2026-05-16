@@ -32,7 +32,6 @@ export default function Home() {
 
   const isAtLimit = promptCount >= FREE_LIMIT;
 
-  // Cycle mission statements during invisible layer
   useEffect(() => {
     if (step !== 'invisible') return;
     const interval = setInterval(() => {
@@ -45,7 +44,6 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [step]);
 
-  // Reset mission index when leaving invisible step
   useEffect(() => {
     if (step !== 'invisible') {
       setMissionIndex(0);
@@ -187,7 +185,6 @@ export default function Home() {
       </Head>
 
       <div style={styles.page}>
-        {/* NAV */}
         <nav style={styles.nav}>
           <div style={styles.navLogo}>
             Prompt <span style={styles.navLogoEm}>Prophet</span>
@@ -206,7 +203,6 @@ export default function Home() {
 
         <main style={styles.main}>
 
-          {/* STEP: EMAIL GATE */}
           {step === 'email' && (
             <>
               <div style={styles.hero}>
@@ -261,7 +257,6 @@ export default function Home() {
             </>
           )}
 
-          {/* HERO — only show on input step */}
           {step === 'input' && (
             <div style={styles.hero}>
               <p style={styles.eyebrow}>P.I.E. — Prompt Inception Engine</p>
@@ -275,7 +270,6 @@ export default function Home() {
             </div>
           )}
 
-          {/* PROGRESS BAR */}
           {step !== 'email' && step !== 'input' && (
             <div style={styles.progressWrap}>
               {['Capture', 'Confirm', 'Crafting', 'Ready'].map((label, i) => (
@@ -294,11 +288,9 @@ export default function Home() {
             </div>
           )}
 
-          {/* CARD — all steps except email */}
           {step !== 'email' && (
             <div style={styles.card}>
 
-              {/* STEP: INPUT */}
               {step === 'input' && (
                 <div>
                   <p style={styles.cardLabel}>LAYER 01 — INTENT CAPTURE</p>
@@ -321,7 +313,7 @@ export default function Home() {
                       <p style={styles.limitTitle}>You've used your {FREE_LIMIT} free prompts.</p>
                       <p style={styles.limitSub}>Prompt Prophet Pro is coming — unlimited prompts, priority access, and early pricing locked in for founding members.</p>
                       
-                        href="https://mailchi.mp/goodcompanion/prompt-prophet-pro"
+                        href="https://prompt-prophet-pro.carrd.co"
                         target="_blank"
                         rel="noopener noreferrer"
                         style={styles.btnPrimary}
@@ -348,7 +340,6 @@ export default function Home() {
                 </div>
               )}
 
-              {/* STEP: CONFIRM */}
               {step === 'confirm' && (
                 <div>
                   <p style={styles.cardLabel}>LAYER 01 — DOES THIS CAPTURE YOUR INTENT?</p>
@@ -376,7 +367,6 @@ export default function Home() {
                 </div>
               )}
 
-              {/* STEP: INVISIBLE LAYER */}
               {step === 'invisible' && (
                 <div style={styles.invisibleWrap}>
                   <div style={styles.invisibleInner}>
@@ -410,7 +400,6 @@ export default function Home() {
                 </div>
               )}
 
-              {/* STEP: RESULT */}
               {step === 'result' && (
                 <div>
                   <p style={styles.cardLabel}>LAYER 03 — YOUR PRECISION PROMPT</p>
