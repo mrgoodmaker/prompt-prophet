@@ -1,7 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Head from 'next/head';
 
 const FREE_LIMIT = 5;
+
+const MISSION_STATEMENTS = [
+  "The average AI query uses as much water as a small bottle of drinking water. Multiply that by billions of daily queries. Good Companion is building toward a model that accounts for what it costs the planet to think.",
+  "Most AI is optimized to keep you coming back. Good Companion is optimized to make you need it less.",
+  "The global AI arms race is consuming energy at a rate that would power entire countries. We believe the next breakthrough isn't more power — it's more intention.",
+  "Your prompts are training someone else's model. Good Companion is building a system where the value you create comes back to you.",
+  "Regenerative means giving back more than you take — from the soil, from the water, from the attention of the people who use you. We're applying that principle to AI.",
+  "Data centers supporting today's AI consume more water than some cities. The companies building them rarely talk about it. We will.",
+  "Good Companion is developing a certification framework for regenerative AI — so that one day, the tools you use will carry a standard that means something about how they were built and what they cost the world.",
+  "Cognitive sovereignty means you own your thinking. AI should expand what you're capable of — not replace the capability itself. That's the line we won't cross.",
+  "The carbon footprint of training a single large AI model can equal the lifetime emissions of five cars. We're not ignoring that number. We're building around it.",
+  "Good Companion exists because we believe AI should work the way a healthy ecosystem works — every part strengthening every other part, nothing extracted without something returned.",
+];
 
 export default function Home() {
   const [step, setStep] = useState('email');
@@ -14,8 +27,31 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [promptCount, setPromptCount] = useState(0);
+  const [missionIndex, setMissionIndex] = useState(0);
+  const [missionVisible, setMissionVisible] = useState(true);
 
   const isAtLimit = promptCount >= FREE_LIMIT;
+
+  // Cycle mission statements during invisible layer
+  useEffect(() => {
+    if (step !== 'invisible') return;
+    const interval = setInterval(() => {
+      setMissionVisible(false);
+      setTimeout(() => {
+        setMissionIndex(prev => (prev + 1) % MISSION_STATEMENTS.length);
+        setMissionVisible(true);
+      }, 600);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [step]);
+
+  // Reset mission index when leaving invisible step
+  useEffect(() => {
+    if (step !== 'invisible') {
+      setMissionIndex(0);
+      setMissionVisible(true);
+    }
+  }, [step]);
 
   const handleEmailSubmit = async () => {
     if (!email.trim() || !email.includes('@') || emailLoading) return;
@@ -29,7 +65,6 @@ export default function Home() {
       });
       const data = await res.json();
       if (data.success) {
-        // Load their server-side count — works for new and returning users
         setPromptCount(data.promptCount || 0);
         setStep('input');
       } else {
@@ -71,7 +106,6 @@ export default function Home() {
       const data = await res.json();
 
       if (res.status === 403) {
-        // Limit reached server-side
         setPromptCount(FREE_LIMIT);
         setStep('input');
         setLoading(false);
@@ -80,7 +114,6 @@ export default function Home() {
 
       setSeedPrompt(data.result);
 
-      // Use server-returned count if available, otherwise increment local
       if (data.promptCount !== null && data.promptCount !== undefined) {
         setPromptCount(data.promptCount);
       } else {
@@ -96,11 +129,10 @@ export default function Home() {
   };
 
   const handleCopy = () => {
-    // Strip any residual code fence markers before copying
-    // so the prompt pastes as raw instructions, not quoted code
     const cleanPrompt = seedPrompt
       .replace(/^```[\w]*\n?/gm, '')
       .replace(/^```\n?/gm, '')
+      .replace(/```\s*$/gm, '')
       .trim();
     navigator.clipboard.writeText(cleanPrompt);
     setCopied(true);
@@ -133,6 +165,25 @@ export default function Home() {
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="true" />
         <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+        <style>{`
+          @keyframes orbPulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 16px 48px rgba(184,115,51,0.4); }
+            50% { transform: scale(1.08); box-shadow: 0 20px 60px rgba(184,115,51,0.6); }
+          }
+          @keyframes orbRotate {
+            0% { filter: hue-rotate(0deg) brightness(1); }
+            50% { filter: hue-rotate(15deg) brightness(1.1); }
+            100% { filter: hue-rotate(0deg) brightness(1); }
+          }
+          .orb-animated {
+            animation: orbPulse 2.5s ease-in-out infinite, orbRotate 4s ease-in-out infinite;
+          }
+          .mission-text {
+            transition: opacity 0.6s ease;
+          }
+          .mission-visible { opacity: 1; }
+          .mission-hidden { opacity: 0; }
+        `}</style>
       </Head>
 
       <div style={styles.page}>
@@ -268,8 +319,15 @@ export default function Home() {
                   {isAtLimit ? (
                     <div style={styles.limitBox}>
                       <p style={styles.limitTitle}>You've used your {FREE_LIMIT} free prompts.</p>
-                      <p style={styles.limitSub}>Upgrade to Pro for unlimited access — $15/month.</p>
-                      <button style={styles.btnPrimary}>Upgrade to Pro →</button>
+                      <p style={styles.limitSub}>Prompt Prophet Pro is coming — unlimited prompts, priority access, and early pricing locked in for founding members.</p>
+                      
+                        href="https://mailchi.mp/goodcompanion/prompt-prophet-pro"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={styles.btnPrimary}
+                      >
+                        Join the Waitlist →
+                      </a>
                     </div>
                   ) : (
                     <div style={styles.inputActions}>
@@ -323,13 +381,31 @@ export default function Home() {
                 <div style={styles.invisibleWrap}>
                   <div style={styles.invisibleInner}>
                     <div style={styles.orbWrap}>
-                      <div style={styles.orb} />
+                      <div className="orb-animated" style={styles.orb} />
                     </div>
                     <p style={styles.invisibleLabel}>LAYER 02 — EXPERT ARCHITECTURE</p>
                     <p style={styles.invisibleTitle}>Prophet is working.</p>
-                    <p style={styles.invisibleSub}>
-                      This layer is invisible by design. Expert prompt architecture is being applied to your intent. You'll feel the result — not see the process.
-                    </p>
+                    <div style={styles.missionWrap}>
+                      <p
+                        className={`mission-text ${missionVisible ? 'mission-visible' : 'mission-hidden'}`}
+                        style={styles.missionText}
+                      >
+                        {MISSION_STATEMENTS[missionIndex]}
+                      </p>
+                    </div>
+                    <div style={styles.gcSeedRow}>
+                      <p style={styles.gcSeedText}>
+                        Follow our story →{' '}
+                        
+                          href="https://instagram.com/goodcompanion.ai"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={styles.gcSeedLink}
+                        >
+                          @goodcompanion.ai
+                        </a>
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}
@@ -566,6 +642,8 @@ const styles = {
     cursor: 'pointer',
     transition: 'all 0.2s',
     boxShadow: '0 4px 16px rgba(184,115,51,0.3)',
+    textDecoration: 'none',
+    display: 'inline-block',
   },
   btnSecondary: {
     background: 'transparent',
@@ -598,7 +676,7 @@ const styles = {
   },
   invisibleInner: {
     textAlign: 'center',
-    maxWidth: '400px',
+    maxWidth: '440px',
   },
   orbWrap: {
     display: 'flex',
@@ -611,7 +689,6 @@ const styles = {
     borderRadius: '50%',
     background: 'radial-gradient(circle at 35% 35%, #D4924A, #B87333, #1E3A2F)',
     boxShadow: '0 16px 48px rgba(184,115,51,0.4)',
-    animation: 'orbPulse 2s ease-in-out infinite',
   },
   invisibleLabel: {
     fontSize: '10px',
@@ -626,13 +703,35 @@ const styles = {
     fontSize: '28px',
     fontWeight: '500',
     color: '#1A1A18',
-    marginBottom: '12px',
+    marginBottom: '20px',
   },
-  invisibleSub: {
+  missionWrap: {
+    minHeight: '80px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: '24px',
+  },
+  missionText: {
     fontSize: '14px',
     color: '#6B6258',
-    lineHeight: '1.65',
+    lineHeight: '1.7',
     fontWeight: '300',
+    fontStyle: 'italic',
+    textAlign: 'center',
+  },
+  gcSeedRow: {
+    borderTop: '1px solid #E4DBCF',
+    paddingTop: '16px',
+  },
+  gcSeedText: {
+    fontSize: '13px',
+    color: '#A89F96',
+  },
+  gcSeedLink: {
+    color: '#B87333',
+    textDecoration: 'none',
+    fontWeight: '500',
   },
   resultBox: {
     background: '#FDF9F3',
@@ -688,6 +787,7 @@ const styles = {
     fontSize: '14px',
     color: '#6B6258',
     marginBottom: '16px',
+    lineHeight: '1.6',
   },
   doctrineRow: {
     display: 'flex',
