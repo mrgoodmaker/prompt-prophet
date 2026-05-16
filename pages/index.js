@@ -196,7 +196,7 @@ export default function Home() {
               </span>
             )}
             <a href="https://goodcompanion.ai" style={styles.navBadge}>
-              Good Companion
+              🌿 Good Companion
             </a>
           </div>
         </nav>
