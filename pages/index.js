@@ -16,6 +16,29 @@ const MISSION_STATEMENTS = [
   "Good Companion exists because we believe AI should work the way a healthy ecosystem works — every part strengthening every other part, nothing extracted without something returned.",
 ];
 
+// Strip Prompt Notes section and code fences from generated prompt
+function cleanPrompt(raw) {
+  // Remove code fences
+  let cleaned = raw
+    .replace(/^```[\w]*\n?/gm, '')
+    .replace(/^```\n?/gm, '')
+    .replace(/```\s*$/gm, '');
+
+  // Remove Prompt Notes section — everything from --- PROMPT NOTES onward
+  const notesIndex = cleaned.search(/\n---\s*\nPROMPT NOTES/i);
+  if (notesIndex !== -1) {
+    cleaned = cleaned.substring(0, notesIndex);
+  }
+
+  // Also catch variations without the divider
+  const altNotesIndex = cleaned.search(/\nPROMPT NOTES\n/i);
+  if (altNotesIndex !== -1) {
+    cleaned = cleaned.substring(0, altNotesIndex);
+  }
+
+  return cleaned.trim();
+}
+
 export default function Home() {
   const [step, setStep] = useState('email');
   const [email, setEmail] = useState('');
@@ -127,12 +150,7 @@ export default function Home() {
   };
 
   const handleCopy = () => {
-    const cleanPrompt = seedPrompt
-      .replace(/^```[\w]*\n?/gm, '')
-      .replace(/^```\n?/gm, '')
-      .replace(/```\s*$/gm, '')
-      .trim();
-    navigator.clipboard.writeText(cleanPrompt);
+    navigator.clipboard.writeText(cleanPrompt(seedPrompt));
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
   };
@@ -206,7 +224,7 @@ export default function Home() {
           {step === 'email' && (
             <>
               <div style={styles.hero}>
-                <p style={styles.eyebrow}>P.I.E. - Prompt Inception Engine</p>
+                <p style={styles.eyebrow}>P.I.E. — Prompt Inception Engine</p>
                 <h1 style={styles.heroTitle}>
                   You know what you want.<br />
                   Now <em style={styles.heroEm}>get it</em> from AI.
@@ -216,7 +234,7 @@ export default function Home() {
                 </p>
               </div>
               <div style={styles.card}>
-                <p style={styles.cardLabel}>GET STARTED - FREE</p>
+                <p style={styles.cardLabel}>GET STARTED — FREE</p>
                 <p style={styles.cardHint}>
                   Enter your email to access Prompt Prophet. Already used it before? Same email gets you right back in.
                 </p>
@@ -259,7 +277,7 @@ export default function Home() {
 
           {step === 'input' && (
             <div style={styles.hero}>
-              <p style={styles.eyebrow}>P.I.E. - Prompt Inception Engine</p>
+              <p style={styles.eyebrow}>P.I.E. — Prompt Inception Engine</p>
               <h1 style={styles.heroTitle}>
                 You know what you want.<br />
                 Now <em style={styles.heroEm}>get it</em> from AI.
@@ -293,9 +311,9 @@ export default function Home() {
 
               {step === 'input' && (
                 <div>
-                  <p style={styles.cardLabel}>LAYER 01 - INTENT CAPTURE</p>
+                  <p style={styles.cardLabel}>LAYER 01 — INTENT CAPTURE</p>
                   <p style={styles.cardHint}>
-                    What are you trying to accomplish? Describe it in your own words - rough, detailed, anywhere in between.
+                    What are you trying to accomplish? Describe it in your own words — rough, detailed, anywhere in between.
                   </p>
                   <textarea
                     style={styles.textarea}
@@ -310,10 +328,10 @@ export default function Home() {
                   />
                   {isAtLimit ? (
                     <div style={styles.limitBox}>
-                      <p style={styles.limitTitle}>You have used your {FREE_LIMIT} free prompts.</p>
+                      <p style={styles.limitTitle}>You've used your {FREE_LIMIT} free prompts.</p>
                       <p style={styles.limitSub}>Prompt Prophet Pro is coming — unlimited prompts, priority access, and early pricing locked in for founding members.</p>
                       
-                       <a href="https://prompt-prophet-pro.carrd.co"
+                        href="https://prompt-prophet-pro.carrd.co"
                         target="_blank"
                         rel="noopener noreferrer"
                         style={styles.btnPrimary}
@@ -334,7 +352,7 @@ export default function Home() {
                       >
                         {loading ? 'Prophet is thinking...' : 'Refine My Intent'}
                       </button>
-                      <p style={styles.inputHint}>Cmd + Enter to submit</p>
+                      <p style={styles.inputHint}>⌘ + Enter to submit</p>
                     </div>
                   )}
                 </div>
@@ -342,9 +360,9 @@ export default function Home() {
 
               {step === 'confirm' && (
                 <div>
-                  <p style={styles.cardLabel}>LAYER 01 - DOES THIS CAPTURE YOUR INTENT?</p>
+                  <p style={styles.cardLabel}>LAYER 01 — DOES THIS CAPTURE YOUR INTENT?</p>
                   <p style={styles.cardHint}>
-                    Prophet has refined what you described. Read this carefully - confirm it is right before we go deeper.
+                    Prophet has refined what you described. Read this carefully — confirm it's right before we go deeper.
                   </p>
                   <div style={styles.refinedBox}>
                     {refinedIntent.split('\n').map((line, i) => {
@@ -358,7 +376,7 @@ export default function Home() {
                   </div>
                   <div style={styles.confirmActions}>
                     <button style={styles.btnPrimary} onClick={handleConfirm} disabled={loading}>
-                      {loading ? 'Building your prompt...' : "Yes, that's it - Generate My Prompt"}
+                      {loading ? 'Building your prompt...' : "Yes, that's it — Generate My Prompt"}
                     </button>
                     <button style={styles.btnSecondary} onClick={handleEdit}>
                       Let me adjust
@@ -373,7 +391,7 @@ export default function Home() {
                     <div style={styles.orbWrap}>
                       <div className="orb-animated" style={styles.orb} />
                     </div>
-                    <p style={styles.invisibleLabel}>LAYER 02 - EXPERT ARCHITECTURE</p>
+                    <p style={styles.invisibleLabel}>LAYER 02 — EXPERT ARCHITECTURE</p>
                     <p style={styles.invisibleTitle}>Prophet is working.</p>
                     <div style={styles.missionWrap}>
                       <p
@@ -387,7 +405,7 @@ export default function Home() {
                       <p style={styles.gcSeedText}>
                         Follow our story at{' '}
                         
-                        <a  href="https://instagram.com/goodcompanion.ai"
+                          href="https://instagram.com/goodcompanion.ai"
                           target="_blank"
                           rel="noopener noreferrer"
                           style={styles.gcSeedLink}
@@ -402,12 +420,14 @@ export default function Home() {
 
               {step === 'result' && (
                 <div>
-                  <p style={styles.cardLabel}>LAYER 03 - YOUR PRECISION PROMPT</p>
-                  <p style={styles.cardHint}>
-                    This prompt is engineered to get you the best possible result from any AI tool. Copy it and paste it directly into ChatGPT, Claude, Gemini - anywhere.
-                  </p>
+                  <p style={styles.cardLabel}>LAYER 03 — YOUR PRECISION PROMPT</p>
+                  <div style={styles.pieStatement}>
+                    <p style={styles.pieStatementText}>
+                      This prompt was engineered by Prompt Prophet's P.I.E. — Prompt Inception Engine. It's been architecturally designed to activate your AI of choice at its highest capability level. Paste it into any AI tool and experience the difference precision prompting makes.
+                    </p>
+                  </div>
                   <div style={styles.resultBox}>
-                    <pre style={styles.resultText}>{seedPrompt}</pre>
+                    <pre style={styles.resultText}>{cleanPrompt(seedPrompt)}</pre>
                   </div>
                   <div style={styles.resultActions}>
                     <button style={styles.btnPrimary} onClick={handleCopy}>
@@ -419,7 +439,7 @@ export default function Home() {
                   </div>
                   <div style={styles.shareRow}>
                     <p style={styles.shareText}>
-                      Built by <a href="https://goodcompanion.ai" style={styles.shareLink}>Good Companion</a> - AI that makes you more yourself.
+                      🌿 Built by <a href="https://goodcompanion.ai" style={styles.shareLink}>Good Companion</a> — AI that makes you more yourself.
                     </p>
                   </div>
                 </div>
@@ -721,6 +741,21 @@ const styles = {
     color: '#B87333',
     textDecoration: 'none',
     fontWeight: '500',
+  },
+  pieStatement: {
+    background: 'linear-gradient(135deg, #FDF9F3, #F5ECD9)',
+    border: '1px solid #E8D5B0',
+    borderRadius: '12px',
+    padding: '16px 20px',
+    marginBottom: '16px',
+  },
+  pieStatementText: {
+    fontSize: '13px',
+    color: '#6B6258',
+    lineHeight: '1.65',
+    fontWeight: '300',
+    fontStyle: 'italic',
+    margin: 0,
   },
   resultBox: {
     background: '#FDF9F3',
