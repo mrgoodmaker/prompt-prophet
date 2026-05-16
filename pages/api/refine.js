@@ -36,10 +36,10 @@ export default async function handler(req, res) {
 
     if (layer === 2) {
       if (email) {
-        const count = await getPromptCount(email);
+        const count = await getDailyPromptCount(email);
         if (count >= 5) {
           return res.status(403).json({
-            error: "Free prompt limit reached",
+            error: "Daily prompt limit reached",
             promptCount: count,
           });
         }
@@ -48,11 +48,11 @@ export default async function handler(req, res) {
       const response = await runLayer2(userInput, refinedBrief, apiKey);
 
       if (email) {
-        await incrementPromptCount(email);
+        await incrementDailyPromptCount(email);
       }
 
       const globalCount = await incrementGlobalCount();
-      const newCount = email ? await getPromptCount(email) : null;
+      const newCount = email ? await getDailyPromptCount(email) : null;
 
       return res.status(200).json({
         result: response,
@@ -74,17 +74,22 @@ export default async function handler(req, res) {
 }
 
 // ─────────────────────────────────────────────
-// REDIS HELPERS — PER USER
+// REDIS HELPERS — DAILY PER USER
 // ─────────────────────────────────────────────
 
-async function getPromptCount(email) {
+function getDailyKey(email) {
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD UTC
+  const normalizedEmail = email.toLowerCase().trim();
+  return `pp_daily:${normalizedEmail}:${today}`;
+}
+
+async function getDailyPromptCount(email) {
   const kvUrl = process.env.KV_REST_API_URL;
   const kvToken = process.env.KV_REST_API_TOKEN;
   if (!kvUrl || !kvToken) return 0;
 
   try {
-    const normalizedEmail = email.toLowerCase().trim();
-    const redisKey = `pp_count:${normalizedEmail}`;
+    const redisKey = getDailyKey(email);
     const response = await fetch(`${kvUrl}/get/${redisKey}`, {
       headers: { Authorization: `Bearer ${kvToken}` },
     });
@@ -93,25 +98,30 @@ async function getPromptCount(email) {
       ? parseInt(data.result)
       : 0;
   } catch (error) {
-    console.error("Redis getPromptCount error:", error.message);
+    console.error("Redis getDailyPromptCount error:", error.message);
     return 0;
   }
 }
 
-async function incrementPromptCount(email) {
+async function incrementDailyPromptCount(email) {
   const kvUrl = process.env.KV_REST_API_URL;
   const kvToken = process.env.KV_REST_API_TOKEN;
   if (!kvUrl || !kvToken) return;
 
   try {
-    const normalizedEmail = email.toLowerCase().trim();
-    const redisKey = `pp_count:${normalizedEmail}`;
+    const redisKey = getDailyKey(email);
+    // Increment and set expiry to 48 hours to ensure cleanup
     await fetch(`${kvUrl}/incr/${redisKey}`, {
       method: "GET",
       headers: { Authorization: `Bearer ${kvToken}` },
     });
+    // Set expiry of 48 hours so keys clean themselves up
+    await fetch(`${kvUrl}/expire/${redisKey}/172800`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${kvToken}` },
+    });
   } catch (error) {
-    console.error("Redis incrementPromptCount error:", error.message);
+    console.error("Redis incrementDailyPromptCount error:", error.message);
   }
 }
 
@@ -131,7 +141,6 @@ async function incrementGlobalCount() {
     });
     const data = await response.json();
     const rawCount = parseInt(data.result) || 1;
-    // Seed offset — makes the number feel like an established system
     return rawCount + 799;
   } catch (error) {
     console.error("Redis incrementGlobalCount error:", error.message);
