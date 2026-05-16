@@ -16,21 +16,29 @@ const MISSION_STATEMENTS = [
   "Good Companion exists because we believe AI should work the way a healthy ecosystem works — every part strengthening every other part, nothing extracted without something returned.",
 ];
 
-// Strip Prompt Notes section and code fences from generated prompt
+const PROPHET_STAGES = [
+  "Analyzing your intent...",
+  "Excavating what you actually need...",
+  "Designing your prompt architecture...",
+  "Calibrating activation sequence...",
+  "Running quality audit...",
+  "Finalizing your precision prompt...",
+];
+
+// Ambient prompt counter — seeded at 800, increments slowly during session
+const SEED_COUNT = 800;
+
 function cleanPrompt(raw) {
-  // Remove code fences
   let cleaned = raw
     .replace(/^```[\w]*\n?/gm, '')
     .replace(/^```\n?/gm, '')
     .replace(/```\s*$/gm, '');
 
-  // Remove Prompt Notes section — everything from --- PROMPT NOTES onward
   const notesIndex = cleaned.search(/\n---\s*\nPROMPT NOTES/i);
   if (notesIndex !== -1) {
     cleaned = cleaned.substring(0, notesIndex);
   }
 
-  // Also catch variations without the divider
   const altNotesIndex = cleaned.search(/\nPROMPT NOTES\n/i);
   if (altNotesIndex !== -1) {
     cleaned = cleaned.substring(0, altNotesIndex);
@@ -52,9 +60,13 @@ export default function Home() {
   const [promptCount, setPromptCount] = useState(0);
   const [missionIndex, setMissionIndex] = useState(0);
   const [missionVisible, setMissionVisible] = useState(true);
+  const [stageIndex, setStageIndex] = useState(0);
+  const [stageVisible, setStageVisible] = useState(true);
+  const [ambientCount, setAmbientCount] = useState(SEED_COUNT);
 
   const isAtLimit = promptCount >= FREE_LIMIT;
 
+  // Mission statement cycling
   useEffect(() => {
     if (step !== 'invisible') return;
     const interval = setInterval(() => {
@@ -67,10 +79,35 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [step]);
 
+  // Stage label cycling — faster than mission statements
+  useEffect(() => {
+    if (step !== 'invisible') return;
+    const interval = setInterval(() => {
+      setStageVisible(false);
+      setTimeout(() => {
+        setStageIndex(prev => (prev + 1) % PROPHET_STAGES.length);
+        setStageVisible(true);
+      }, 400);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [step]);
+
+  // Ambient counter — increments every 8-15 seconds while on invisible step
+  useEffect(() => {
+    if (step !== 'invisible') return;
+    const interval = setInterval(() => {
+      setAmbientCount(prev => prev + Math.floor(Math.random() * 2) + 1);
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [step]);
+
+  // Reset on leaving invisible step
   useEffect(() => {
     if (step !== 'invisible') {
       setMissionIndex(0);
       setMissionVisible(true);
+      setStageIndex(0);
+      setStageVisible(true);
     }
   }, [step]);
 
@@ -197,8 +234,25 @@ export default function Home() {
           .mission-text {
             transition: opacity 0.6s ease;
           }
+          .stage-text {
+            transition: opacity 0.4s ease;
+          }
           .mission-visible { opacity: 1; }
           .mission-hidden { opacity: 0; }
+          @keyframes pulseThink {
+            0%, 100% { opacity: 0.4; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.3); }
+          }
+          .thinking-dot {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #B87333;
+            margin-left: 8px;
+            animation: pulseThink 1.2s ease-in-out infinite;
+            vertical-align: middle;
+          }
         `}</style>
       </Head>
 
@@ -331,7 +385,7 @@ export default function Home() {
                       <p style={styles.limitTitle}>You've used your {FREE_LIMIT} free prompts.</p>
                       <p style={styles.limitSub}>Prompt Prophet Pro is coming — unlimited prompts, priority access, and early pricing locked in for founding members.</p>
                       
-                       <a href="https://prompt-prophet-pro.carrd.co"
+                        href="https://prompt-prophet-pro.carrd.co"
                         target="_blank"
                         rel="noopener noreferrer"
                         style={styles.btnPrimary}
@@ -350,9 +404,11 @@ export default function Home() {
                         onClick={handleRefine}
                         disabled={loading || !userInput.trim()}
                       >
-                        {loading ? 'Prophet is thinking...' : 'Refine My Intent'}
+                        {loading ? (
+                          <>Prophet is thinking<span className="thinking-dot" /></>
+                        ) : 'Refine My Intent'}
                       </button>
-                      <p style={styles.inputHint}>⌘ + Enter to submit</p>
+                      {!loading && <p style={styles.inputHint}>⌘ + Enter to submit</p>}
                     </div>
                   )}
                 </div>
@@ -376,7 +432,9 @@ export default function Home() {
                   </div>
                   <div style={styles.confirmActions}>
                     <button style={styles.btnPrimary} onClick={handleConfirm} disabled={loading}>
-                      {loading ? 'Building your prompt...' : "Yes, that's it — Generate My Prompt"}
+                      {loading ? (
+                        <>Building your prompt<span className="thinking-dot" /></>
+                      ) : "Yes, that's it — Generate My Prompt"}
                     </button>
                     <button style={styles.btnSecondary} onClick={handleEdit}>
                       Let me adjust
@@ -393,6 +451,16 @@ export default function Home() {
                     </div>
                     <p style={styles.invisibleLabel}>LAYER 02 — EXPERT ARCHITECTURE</p>
                     <p style={styles.invisibleTitle}>Prophet is working.</p>
+
+                    <div style={styles.stageWrap}>
+                      <p
+                        className={'stage-text ' + (stageVisible ? 'mission-visible' : 'mission-hidden')}
+                        style={styles.stageText}
+                      >
+                        {PROPHET_STAGES[stageIndex]}
+                      </p>
+                    </div>
+
                     <div style={styles.missionWrap}>
                       <p
                         className={'mission-text ' + (missionVisible ? 'mission-visible' : 'mission-hidden')}
@@ -401,11 +469,18 @@ export default function Home() {
                         {MISSION_STATEMENTS[missionIndex]}
                       </p>
                     </div>
+
+                    <div style={styles.ambientCountRow}>
+                      <p style={styles.ambientCountText}>
+                        Prompt #{ambientCount.toLocaleString()} in progress
+                      </p>
+                    </div>
+
                     <div style={styles.gcSeedRow}>
                       <p style={styles.gcSeedText}>
                         Follow our story at{' '}
                         
-                         <a href="https://instagram.com/goodcompanion.ai"
+                          href="https://instagram.com/goodcompanion.ai"
                           target="_blank"
                           rel="noopener noreferrer"
                           style={styles.gcSeedLink}
@@ -652,7 +727,8 @@ const styles = {
     transition: 'all 0.2s',
     boxShadow: '0 4px 16px rgba(184,115,51,0.3)',
     textDecoration: 'none',
-    display: 'inline-block',
+    display: 'inline-flex',
+    alignItems: 'center',
   },
   btnSecondary: {
     background: 'transparent',
@@ -712,14 +788,28 @@ const styles = {
     fontSize: '28px',
     fontWeight: '500',
     color: '#1A1A18',
+    marginBottom: '16px',
+  },
+  stageWrap: {
+    minHeight: '28px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: '20px',
+  },
+  stageText: {
+    fontSize: '13px',
+    color: '#B87333',
+    fontWeight: '500',
+    letterSpacing: '0.04em',
+    textAlign: 'center',
   },
   missionWrap: {
     minHeight: '80px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: '24px',
+    marginBottom: '20px',
   },
   missionText: {
     fontSize: '14px',
@@ -728,6 +818,15 @@ const styles = {
     fontWeight: '300',
     fontStyle: 'italic',
     textAlign: 'center',
+  },
+  ambientCountRow: {
+    marginBottom: '16px',
+  },
+  ambientCountText: {
+    fontSize: '11px',
+    color: '#C4B8A8',
+    letterSpacing: '0.08em',
+    textTransform: 'uppercase',
   },
   gcSeedRow: {
     borderTop: '1px solid #E4DBCF',
