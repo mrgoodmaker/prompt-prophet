@@ -1,7 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 
 const FREE_LIMIT = 5;
+
+const WAITLIST_URL = 'https://prompt-prophet-pro.carrd.co';
+const INSTAGRAM_URL = 'https://instagram.com/goodcompanion.ai';
 
 const MISSION_STATEMENTS = [
   "The average AI query uses as much water as a small bottle of drinking water. Multiply that by billions of daily queries. Good Companion is building toward a model that accounts for what it costs the planet to think.",
@@ -25,7 +28,7 @@ const PROPHET_STAGES = [
   "Finalizing your precision prompt...",
 ];
 
-// Ambient prompt counter — seeded at 800, increments slowly during session
+const STAGE_DURATION = 6000;
 const SEED_COUNT = 800;
 
 function cleanPrompt(raw) {
@@ -33,17 +36,10 @@ function cleanPrompt(raw) {
     .replace(/^```[\w]*\n?/gm, '')
     .replace(/^```\n?/gm, '')
     .replace(/```\s*$/gm, '');
-
   const notesIndex = cleaned.search(/\n---\s*\nPROMPT NOTES/i);
-  if (notesIndex !== -1) {
-    cleaned = cleaned.substring(0, notesIndex);
-  }
-
+  if (notesIndex !== -1) cleaned = cleaned.substring(0, notesIndex);
   const altNotesIndex = cleaned.search(/\nPROMPT NOTES\n/i);
-  if (altNotesIndex !== -1) {
-    cleaned = cleaned.substring(0, altNotesIndex);
-  }
-
+  if (altNotesIndex !== -1) cleaned = cleaned.substring(0, altNotesIndex);
   return cleaned.trim();
 }
 
@@ -62,11 +58,13 @@ export default function Home() {
   const [missionVisible, setMissionVisible] = useState(true);
   const [stageIndex, setStageIndex] = useState(0);
   const [stageVisible, setStageVisible] = useState(true);
+  const [stageDone, setStageDone] = useState(false);
   const [ambientCount, setAmbientCount] = useState(SEED_COUNT);
+  const stageTimerRef = useRef(null);
 
   const isAtLimit = promptCount >= FREE_LIMIT;
 
-  // Mission statement cycling
+  // Mission statement cycling — independent loop
   useEffect(() => {
     if (step !== 'invisible') return;
     const interval = setInterval(() => {
@@ -79,20 +77,34 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [step]);
 
-  // Stage label cycling — faster than mission statements
+  // Stage progression — single pass, hold on last
   useEffect(() => {
     if (step !== 'invisible') return;
-    const interval = setInterval(() => {
-      setStageVisible(false);
-      setTimeout(() => {
-        setStageIndex(prev => (prev + 1) % PROPHET_STAGES.length);
-        setStageVisible(true);
-      }, 400);
-    }, 4000);
-    return () => clearInterval(interval);
+    setStageDone(false);
+    setStageIndex(0);
+    setStageVisible(true);
+
+    let current = 0;
+    const advance = () => {
+      if (current < PROPHET_STAGES.length - 1) {
+        setStageVisible(false);
+        setTimeout(() => {
+          current += 1;
+          setStageIndex(current);
+          setStageVisible(true);
+          if (current === PROPHET_STAGES.length - 1) {
+            setStageDone(true);
+          } else {
+            stageTimerRef.current = setTimeout(advance, STAGE_DURATION);
+          }
+        }, 400);
+      }
+    };
+    stageTimerRef.current = setTimeout(advance, STAGE_DURATION);
+    return () => clearTimeout(stageTimerRef.current);
   }, [step]);
 
-  // Ambient counter — increments every 8-15 seconds while on invisible step
+  // Ambient counter
   useEffect(() => {
     if (step !== 'invisible') return;
     const interval = setInterval(() => {
@@ -101,13 +113,14 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [step]);
 
-  // Reset on leaving invisible step
+  // Reset on leaving invisible
   useEffect(() => {
     if (step !== 'invisible') {
       setMissionIndex(0);
       setMissionVisible(true);
       setStageIndex(0);
       setStageVisible(true);
+      setStageDone(false);
     }
   }, [step]);
 
@@ -162,22 +175,18 @@ export default function Home() {
         body: JSON.stringify({ layer: 2, userInput, refinedBrief: refinedIntent, email }),
       });
       const data = await res.json();
-
       if (res.status === 403) {
         setPromptCount(FREE_LIMIT);
         setStep('input');
         setLoading(false);
         return;
       }
-
       setSeedPrompt(data.result);
-
       if (data.promptCount !== null && data.promptCount !== undefined) {
         setPromptCount(data.promptCount);
       } else {
         setPromptCount(prev => prev + 1);
       }
-
       setStep('result');
     } catch (e) {
       alert('Something went wrong. Please try again.');
@@ -231,28 +240,39 @@ export default function Home() {
           .orb-animated {
             animation: orbPulse 2.5s ease-in-out infinite, orbRotate 4s ease-in-out infinite;
           }
-          .mission-text {
-            transition: opacity 0.6s ease;
+          @keyframes fadeInOut {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
           }
-          .stage-text {
-            transition: opacity 0.4s ease;
+          .stage-pulse {
+            animation: fadeInOut 2s ease-in-out infinite;
           }
-          .mission-visible { opacity: 1; }
-          .mission-hidden { opacity: 0; }
-          @keyframes pulseThink {
-            0%, 100% { opacity: 0.4; transform: scale(1); }
+          @keyframes borderPulse {
+            0%, 100% { border-color: #E4DBCF; }
+            50% { border-color: #B87333; }
+          }
+          .card-loading {
+            animation: borderPulse 2s ease-in-out infinite;
+          }
+          @keyframes dotPulse {
+            0%, 100% { opacity: 0.3; transform: scale(0.8); }
             50% { opacity: 1; transform: scale(1.3); }
           }
-          .thinking-dot {
+          .btn-dot {
             display: inline-block;
             width: 6px;
             height: 6px;
             border-radius: 50%;
-            background: #B87333;
+            background: rgba(255,255,255,0.9);
             margin-left: 8px;
-            animation: pulseThink 1.2s ease-in-out infinite;
             vertical-align: middle;
+            animation: dotPulse 1.2s ease-in-out infinite;
           }
+          .fade-transition {
+            transition: opacity 0.5s ease;
+          }
+          .visible { opacity: 1; }
+          .hidden { opacity: 0; }
         `}</style>
       </Head>
 
@@ -301,9 +321,7 @@ export default function Home() {
                   onKeyDown={(e) => { if (e.key === 'Enter') handleEmailSubmit(); }}
                   disabled={emailLoading}
                 />
-                {emailError && (
-                  <p style={styles.errorText}>{emailError}</p>
-                )}
+                {emailError && <p style={styles.errorText}>{emailError}</p>}
                 <div style={styles.inputActions}>
                   <button
                     style={{
@@ -317,9 +335,7 @@ export default function Home() {
                     {emailLoading ? 'One moment...' : 'Access Prompt Prophet'}
                   </button>
                 </div>
-                <p style={styles.privacyNote}>
-                  No spam. No password. Just your email to get started.
-                </p>
+                <p style={styles.privacyNote}>No spam. No password. Just your email to get started.</p>
               </div>
               <div style={styles.doctrineRow}>
                 <div style={styles.doctrinePill}>🧠 Cognitive Sovereignty</div>
@@ -361,7 +377,10 @@ export default function Home() {
           )}
 
           {step !== 'email' && (
-            <div style={styles.card}>
+            <div
+              style={styles.card}
+              className={loading && step === 'input' ? 'card-loading' : ''}
+            >
 
               {step === 'input' && (
                 <div>
@@ -370,26 +389,25 @@ export default function Home() {
                     What are you trying to accomplish? Describe it in your own words — rough, detailed, anywhere in between.
                   </p>
                   <textarea
-                    style={styles.textarea}
+                    style={{
+                      ...styles.textarea,
+                      opacity: loading ? 0.5 : 1,
+                    }}
                     placeholder="E.g. I want to write a cold email to a potential investor for my startup but I don't know how to make it compelling without being pushy..."
                     value={userInput}
                     onChange={(e) => setUserInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && e.metaKey) handleRefine();
-                    }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && e.metaKey) handleRefine(); }}
                     rows={5}
-                    disabled={isAtLimit}
+                    disabled={isAtLimit || loading}
                   />
+                  {loading && (
+                    <p style={styles.loadingHint}>Prophet is reading your intent and building your brief...</p>
+                  )}
                   {isAtLimit ? (
                     <div style={styles.limitBox}>
                       <p style={styles.limitTitle}>You've used your {FREE_LIMIT} free prompts.</p>
                       <p style={styles.limitSub}>Prompt Prophet Pro is coming — unlimited prompts, priority access, and early pricing locked in for founding members.</p>
-                      
-                       <a href="https://prompt-prophet-pro.carrd.co"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={styles.btnPrimary}
-                      >
+                      <a href={WAITLIST_URL} target="_blank" rel="noopener noreferrer" style={styles.btnPrimary}>
                         Join the Waitlist
                       </a>
                     </div>
@@ -398,15 +416,16 @@ export default function Home() {
                       <button
                         style={{
                           ...styles.btnPrimary,
-                          opacity: loading || !userInput.trim() ? 0.6 : 1,
+                          opacity: loading || !userInput.trim() ? 0.7 : 1,
                           cursor: loading || !userInput.trim() ? 'not-allowed' : 'pointer',
                         }}
                         onClick={handleRefine}
                         disabled={loading || !userInput.trim()}
                       >
-                        {loading ? (
-                          <>Prophet is thinking<span className="thinking-dot" /></>
-                        ) : 'Refine My Intent'}
+                        {loading
+                          ? <span>Prophet is thinking <span className="btn-dot" /></span>
+                          : 'Refine My Intent'
+                        }
                       </button>
                       {!loading && <p style={styles.inputHint}>⌘ + Enter to submit</p>}
                     </div>
@@ -431,12 +450,21 @@ export default function Home() {
                     })}
                   </div>
                   <div style={styles.confirmActions}>
-                    <button style={styles.btnPrimary} onClick={handleConfirm} disabled={loading}>
-                      {loading ? (
-                        <>Building your prompt<span className="thinking-dot" /></>
-                      ) : "Yes, that's it — Generate My Prompt"}
+                    <button
+                      style={{
+                        ...styles.btnPrimary,
+                        opacity: loading ? 0.7 : 1,
+                        cursor: loading ? 'not-allowed' : 'pointer',
+                      }}
+                      onClick={handleConfirm}
+                      disabled={loading}
+                    >
+                      {loading
+                        ? <span>Building your prompt <span className="btn-dot" /></span>
+                        : "Yes, that's it — Generate My Prompt"
+                      }
                     </button>
-                    <button style={styles.btnSecondary} onClick={handleEdit}>
+                    <button style={styles.btnSecondary} onClick={handleEdit} disabled={loading}>
                       Let me adjust
                     </button>
                   </div>
@@ -453,17 +481,21 @@ export default function Home() {
                     <p style={styles.invisibleTitle}>Prophet is working.</p>
 
                     <div style={styles.stageWrap}>
+                      <div style={styles.stagePip} />
                       <p
-                        className={'stage-text ' + (stageVisible ? 'mission-visible' : 'mission-hidden')}
+                        className={'fade-transition ' + (stageVisible ? 'visible' : 'hidden') + (stageDone ? ' stage-pulse' : '')}
                         style={styles.stageText}
                       >
                         {PROPHET_STAGES[stageIndex]}
                       </p>
                     </div>
 
+                    <div style={styles.dividerLine} />
+
                     <div style={styles.missionWrap}>
+                      <p style={styles.missionLabel}>FROM THE GOOD COMPANION MISSION</p>
                       <p
-                        className={'mission-text ' + (missionVisible ? 'mission-visible' : 'mission-hidden')}
+                        className={'fade-transition ' + (missionVisible ? 'visible' : 'hidden')}
                         style={styles.missionText}
                       >
                         {MISSION_STATEMENTS[missionIndex]}
@@ -471,20 +503,13 @@ export default function Home() {
                     </div>
 
                     <div style={styles.ambientCountRow}>
-                      <p style={styles.ambientCountText}>
-                        Prompt #{ambientCount.toLocaleString()} in progress
-                      </p>
+                      <p style={styles.ambientCountText}>Prompt #{ambientCount.toLocaleString()} in progress</p>
                     </div>
 
                     <div style={styles.gcSeedRow}>
                       <p style={styles.gcSeedText}>
                         Follow our story at{' '}
-                        
-                         <a href="https://instagram.com/goodcompanion.ai"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={styles.gcSeedLink}
-                        >
+                        <a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer" style={styles.gcSeedLink}>
                           @goodcompanion.ai
                         </a>
                       </p>
@@ -646,6 +671,7 @@ const styles = {
     borderRadius: '20px',
     padding: '40px',
     boxShadow: '0 4px 32px rgba(184,115,51,0.06)',
+    transition: 'border-color 0.3s',
   },
   cardLabel: {
     fontSize: '10px',
@@ -690,7 +716,7 @@ const styles = {
     resize: 'vertical',
     outline: 'none',
     boxSizing: 'border-box',
-    transition: 'border-color 0.2s',
+    transition: 'border-color 0.2s, opacity 0.3s',
   },
   inputActions: {
     marginTop: '16px',
@@ -701,6 +727,13 @@ const styles = {
   inputHint: {
     fontSize: '12px',
     color: '#A89F96',
+  },
+  loadingHint: {
+    fontSize: '13px',
+    color: '#B87333',
+    fontStyle: 'italic',
+    marginTop: '8px',
+    marginBottom: '4px',
   },
   errorText: {
     fontSize: '13px',
@@ -788,36 +821,61 @@ const styles = {
     fontSize: '28px',
     fontWeight: '500',
     color: '#1A1A18',
-    marginBottom: '16px',
+    marginBottom: '20px',
   },
   stageWrap: {
-    minHeight: '28px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: '20px',
+    gap: '8px',
+    marginBottom: '8px',
+    minHeight: '28px',
+  },
+  stagePip: {
+    width: '6px',
+    height: '6px',
+    borderRadius: '50%',
+    background: '#B87333',
+    flexShrink: 0,
   },
   stageText: {
-    fontSize: '13px',
+    fontSize: '14px',
     color: '#B87333',
-    fontWeight: '500',
-    letterSpacing: '0.04em',
+    fontWeight: '600',
+    letterSpacing: '0.02em',
     textAlign: 'center',
+    margin: 0,
+  },
+  dividerLine: {
+    width: '40px',
+    height: '1px',
+    background: '#E4DBCF',
+    margin: '16px auto',
+  },
+  missionLabel: {
+    fontSize: '9px',
+    fontWeight: '600',
+    letterSpacing: '0.15em',
+    textTransform: 'uppercase',
+    color: '#C4B8A8',
+    marginBottom: '10px',
   },
   missionWrap: {
-    minHeight: '80px',
+    minHeight: '90px',
     display: 'flex',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: '20px',
   },
   missionText: {
-    fontSize: '14px',
+    fontSize: '13px',
     color: '#6B6258',
     lineHeight: '1.7',
     fontWeight: '300',
     fontStyle: 'italic',
     textAlign: 'center',
+    margin: 0,
   },
   ambientCountRow: {
     marginBottom: '16px',
