@@ -29,7 +29,6 @@ const PROPHET_STAGES = [
 ];
 
 const STAGE_DURATION = 6000;
-const SEED_COUNT = 800;
 
 function cleanPrompt(raw) {
   let cleaned = raw
@@ -60,14 +59,12 @@ export default function Home() {
   const [stageIndex, setStageIndex] = useState(0);
   const [stageVisible, setStageVisible] = useState(true);
   const [stageDone, setStageDone] = useState(false);
-  const [ambientCount, setAmbientCount] = useState(SEED_COUNT);
   const [showCancel, setShowCancel] = useState(false);
   const stageTimerRef = useRef(null);
   const cancelTimerRef = useRef(null);
 
   const isAtLimit = promptCount >= FREE_LIMIT;
 
-  // Mission statement cycling
   useEffect(() => {
     if (step !== 'invisible') return;
     const interval = setInterval(() => {
@@ -80,7 +77,6 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [step]);
 
-  // Stage progression — single pass, hold on last
   useEffect(() => {
     if (step !== 'invisible') return;
     setStageDone(false);
@@ -106,16 +102,6 @@ export default function Home() {
     return () => clearTimeout(stageTimerRef.current);
   }, [step]);
 
-  // Ambient counter
-  useEffect(() => {
-    if (step !== 'invisible') return;
-    const interval = setInterval(() => {
-      setAmbientCount(prev => prev + Math.floor(Math.random() * 2) + 1);
-    }, 10000);
-    return () => clearInterval(interval);
-  }, [step]);
-
-  // Show cancel link after 5 seconds on invisible layer
   useEffect(() => {
     if (step !== 'invisible') {
       setShowCancel(false);
@@ -125,7 +111,6 @@ export default function Home() {
     return () => clearTimeout(cancelTimerRef.current);
   }, [step]);
 
-  // Reset on leaving invisible
   useEffect(() => {
     if (step !== 'invisible') {
       setMissionIndex(0);
@@ -229,10 +214,19 @@ export default function Home() {
     setSeedPrompt('');
   };
 
-  const handleCancel = () => {
+  // Returns to confirm screen with brief intact
+  const handleCancelToConfirm = () => {
     setLoading(false);
-    setStep('input');
+    setStep('confirm');
     setShowCancel(false);
+  };
+
+  // Returns to confirm screen from result to refine
+  const handleRefineAgain = () => {
+    setStep('confirm');
+    setSeedPrompt('');
+    setCopied(false);
+    setGlobalPromptNumber(null);
   };
 
   const progressSteps = ['input', 'confirm', 'invisible', 'result'];
@@ -535,10 +529,6 @@ export default function Home() {
                       </p>
                     </div>
 
-                    <div style={styles.ambientCountRow}>
-                      <p style={styles.ambientCountText}>Prompt #{ambientCount.toLocaleString()} in progress</p>
-                    </div>
-
                     <div style={styles.gcSeedRow}>
                       <p style={styles.gcSeedText}>
                         Follow our story at{' '}
@@ -550,8 +540,8 @@ export default function Home() {
 
                     {showCancel && (
                       <div className="fade-in" style={styles.cancelRow}>
-                        <button onClick={handleCancel} style={styles.cancelBtn}>
-                          Cancel and start over
+                        <button onClick={handleCancelToConfirm} style={styles.cancelBtn}>
+                          ← Go back to my brief
                         </button>
                       </div>
                     )}
@@ -583,8 +573,11 @@ export default function Home() {
                     <button style={styles.btnPrimary} onClick={handleCopy}>
                       {copied ? 'Copied to clipboard' : 'Copy Prompt'}
                     </button>
-                    <button style={styles.btnSecondary} onClick={handleReset}>
-                      Start a new prompt
+                    <button style={styles.btnSecondary} onClick={handleRefineAgain}>
+                      ← Refine this prompt
+                    </button>
+                    <button style={styles.btnTertiary} onClick={handleReset}>
+                      Start over
                     </button>
                   </div>
 
@@ -840,6 +833,17 @@ const styles = {
     cursor: 'pointer',
     transition: 'all 0.2s',
   },
+  btnTertiary: {
+    background: 'transparent',
+    color: '#A89F96',
+    border: 'none',
+    padding: '13px 16px',
+    fontFamily: "'DM Sans', sans-serif",
+    fontSize: '13px',
+    fontWeight: '400',
+    cursor: 'pointer',
+    textDecoration: 'underline',
+  },
   refinedBox: {
     background: '#FDF9F3',
     border: '1.5px solid #F0DFC0',
@@ -938,15 +942,6 @@ const styles = {
     textAlign: 'center',
     margin: 0,
   },
-  ambientCountRow: {
-    marginBottom: '16px',
-  },
-  ambientCountText: {
-    fontSize: '10px',
-    color: '#C4B8A8',
-    letterSpacing: '0.1em',
-    textTransform: 'uppercase',
-  },
   gcSeedRow: {
     borderTop: '1px solid #E4DBCF',
     paddingTop: '16px',
@@ -962,7 +957,7 @@ const styles = {
     fontWeight: '500',
   },
   cancelRow: {
-    marginTop: '16px',
+    marginTop: '8px',
   },
   cancelBtn: {
     background: 'none',
@@ -970,7 +965,6 @@ const styles = {
     color: '#C4B8A8',
     fontSize: '12px',
     cursor: 'pointer',
-    textDecoration: 'underline',
     fontFamily: "'DM Sans', sans-serif",
     padding: 0,
   },
@@ -1023,6 +1017,7 @@ const styles = {
     display: 'flex',
     gap: '12px',
     flexWrap: 'wrap',
+    alignItems: 'center',
     marginBottom: '28px',
   },
   regenerativeBlock: {
