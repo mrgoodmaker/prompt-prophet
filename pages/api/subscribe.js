@@ -1,7 +1,6 @@
 // pages/api/subscribe.js
 // Prompt Prophet — Mailchimp email capture + Upstash Redis usage tracking
-// Adds subscriber to Mailchimp and initializes their prompt count in Redis.
-// Uses PUT upsert so existing contacts in any status pass through cleanly.
+// Uses daily key format matching refine.js — resets at midnight UTC.
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -54,44 +53,31 @@ export default async function handler(req, res) {
 
     console.log("Mailchimp: contact upserted", normalizedEmail, mailchimpData.status);
 
-    // Step 2 — Check if this email already has a count in Redis.
-    // If yes, they are a returning user — pass them through with existing count.
-    // If no, initialize their count at 0.
+    // Step 2 — Read today's daily prompt count from Redis
     const kvUrl = process.env.KV_REST_API_URL;
     const kvToken = process.env.KV_REST_API_TOKEN;
 
     if (!kvUrl || !kvToken) {
-      // Redis not configured — still let user through, just without server-side tracking
       console.error("Upstash KV environment variables not found — skipping count init");
       return res.status(200).json({ success: true, promptCount: 0 });
     }
 
-    const redisKey = `pp_count:${normalizedEmail}`;
+    // Use same daily key format as refine.js
+    const today = new Date().toISOString().slice(0, 10);
+    const dailyKey = `pp_daily:${normalizedEmail}:${today}`;
 
-    // Check for existing count first
-    const getResponse = await fetch(`${kvUrl}/get/${redisKey}`, {
+    const getResponse = await fetch(`${kvUrl}/get/${dailyKey}`, {
       headers: { Authorization: `Bearer ${kvToken}` },
     });
 
     const getData = await getResponse.json();
-    const existingCount = getData.result !== null && getData.result !== undefined
+    const todayCount = getData.result !== null && getData.result !== undefined
       ? parseInt(getData.result)
-      : null;
+      : 0;
 
-    if (existingCount !== null) {
-      // Returning user — return their existing count
-      console.log("Redis: returning user", normalizedEmail, "count:", existingCount);
-      return res.status(200).json({ success: true, promptCount: existingCount });
-    }
+    console.log("Redis: daily count for", normalizedEmail, "today:", todayCount);
 
-    // New user — initialize count at 0
-    await fetch(`${kvUrl}/set/${redisKey}/0`, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${kvToken}` },
-    });
-
-    console.log("Redis: new user initialized", normalizedEmail);
-    return res.status(200).json({ success: true, promptCount: 0 });
+    return res.status(200).json({ success: true, promptCount: todayCount });
 
   } catch (error) {
     console.error("Subscribe unexpected error:", error.message);
@@ -102,7 +88,6 @@ export default async function handler(req, res) {
 }
 
 // Pure JavaScript MD5 — no dependencies, works in all Node.js environments.
-// Required because Mailchimp identifies members by MD5 hash of lowercase email.
 function md5(str) {
   function safeAdd(x, y) {
     const lsw = (x & 0xffff) + (y & 0xffff);
@@ -119,7 +104,6 @@ function md5(str) {
   function md5gg(a, b, c, d, x, s, t) { return md5cmn((b & d) | (c & ~d), a, b, x, s, t); }
   function md5hh(a, b, c, d, x, s, t) { return md5cmn(b ^ c ^ d, a, b, x, s, t); }
   function md5ii(a, b, c, d, x, s, t) { return md5cmn(c ^ (b | ~d), a, b, x, s, t); }
-
   const length8 = str.length * 8;
   const l = str.length;
   let i;
@@ -128,13 +112,10 @@ function md5(str) {
   for (i = 0; i < l; i++) tail[i >> 2] |= str.charCodeAt(i) << ((i % 4) * 8);
   tail[i >> 2] |= 0x80 << ((i % 4) * 8);
   tail[n * 16 - 2] = length8;
-
   let a = 1732584193, b = -271733879, c = -1732584194, d = 271733878;
-
   for (i = 0; i < n * 16; i += 16) {
     const aa = a, bb = b, cc = c, dd = d;
     const blk = tail.slice(i, i + 16);
-
     a = md5ff(a, b, c, d, blk[0], 7, -680876936);
     d = md5ff(d, a, b, c, blk[1], 12, -389564586);
     c = md5ff(c, d, a, b, blk[2], 17, 606105819);
@@ -151,7 +132,6 @@ function md5(str) {
     d = md5ff(d, a, b, c, blk[13], 12, -40341101);
     c = md5ff(c, d, a, b, blk[14], 17, -1502002290);
     b = md5ff(b, c, d, a, blk[15], 22, 1236535329);
-
     a = md5gg(a, b, c, d, blk[1], 5, -165796510);
     d = md5gg(d, a, b, c, blk[6], 9, -1069501632);
     c = md5gg(c, d, a, b, blk[11], 14, 643717713);
@@ -168,7 +148,6 @@ function md5(str) {
     d = md5gg(d, a, b, c, blk[2], 9, -51403784);
     c = md5gg(c, d, a, b, blk[7], 14, 1735328473);
     b = md5gg(b, c, d, a, blk[12], 20, -1926607734);
-
     a = md5hh(a, b, c, d, blk[5], 4, -378558);
     d = md5hh(d, a, b, c, blk[8], 11, -2022574463);
     c = md5hh(c, d, a, b, blk[11], 16, 1839030562);
@@ -185,7 +164,6 @@ function md5(str) {
     d = md5hh(d, a, b, c, blk[12], 11, -421815835);
     c = md5hh(c, d, a, b, blk[15], 16, 530742520);
     b = md5hh(b, c, d, a, blk[2], 23, -995338651);
-
     a = md5ii(a, b, c, d, blk[0], 6, -198630844);
     d = md5ii(d, a, b, c, blk[7], 10, 1126891415);
     c = md5ii(c, d, a, b, blk[14], 15, -1416354905);
@@ -202,13 +180,11 @@ function md5(str) {
     d = md5ii(d, a, b, c, blk[11], 10, -1120210379);
     c = md5ii(c, d, a, b, blk[2], 15, 718787259);
     b = md5ii(b, c, d, a, blk[9], 21, -343485551);
-
     a = safeAdd(a, aa);
     b = safeAdd(b, bb);
     c = safeAdd(c, cc);
     d = safeAdd(d, dd);
   }
-
   const result = [a, b, c, d];
   return result.map(n => {
     const hex = [];
