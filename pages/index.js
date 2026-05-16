@@ -40,7 +40,7 @@ export default function Home() {
         setMissionIndex(prev => (prev + 1) % MISSION_STATEMENTS.length);
         setMissionVisible(true);
       }, 600);
-    }, 4000);
+    }, 6000);
     return () => clearInterval(interval);
   }, [step]);
 
