@@ -7,15 +7,15 @@ const INSTAGRAM_URL = 'https://instagram.com/goodcompanion.ai';
 const GC_URL = 'https://goodcompanion.ai';
 
 const MISSION_STATEMENTS = [
-  "The average AI query uses as much water as a small bottle of drinking water. Multiply that by billions of daily queries. Good Companion is building toward a model that accounts for what it costs the planet to think.",
-  "Most AI is optimized to keep you coming back. Good Companion is optimized to make you need it less.",
-  "The global AI arms race is consuming energy at a rate that would power entire countries. We believe the next breakthrough isn't more power — it's more intention.",
-  "Your prompts are training someone else's model. Good Companion is building a system where the value you create comes back to you.",
-  "Regenerative means giving back more than you take — from the soil, from the water, from the attention of the people who use you. We're applying that principle to AI.",
-  "Data centers supporting today's AI consume more water than some cities. The companies building them rarely talk about it. We will.",
+  "A single AI data center in Iowa consumed 1 billion gallons of water in 2024 — enough to cover the entire state's residential water needs for five days. Good Companion is building toward a model that accounts for what it costs the planet to think.",
+  "Most AI is optimized to replace your thinking. Good Companion is optimized to strengthen it — so the more you use it, the more capable you become without it.",
+  "U.S. data centers could consume 12% of all American electricity by 2028 — the equivalent of adding a country the size of Spain to the grid in three years. We believe the next breakthrough isn't more power — it's more intention.",
+  "66% of enterprises are already reducing entry-level hiring because of AI. The workers being displaced first are the ones least able to absorb the transition. We think the companies building these tools have a responsibility to that fact.",
+  "Anthropic estimates a 15–20% probability that current AI models have some form of conscious experience. Global dedicated funding to investigate that question: a handful of fellowships and one consortium launched in 2025. The math on that should bother you.",
+  "About two-thirds of all data centers built since 2022 are in regions already experiencing water stress. The companies building them rarely lead with that. We will.",
   "Good Companion is developing a certification framework for regenerative AI — so that one day, the tools you use will carry a standard that means something about how they were built and what they cost the world.",
   "Cognitive sovereignty means you own your thinking. AI should expand what you're capable of — not replace the capability itself. That's the line we won't cross.",
-  "The carbon footprint of training a single large AI model can equal the lifetime emissions of five cars. We're not ignoring that number. We're building around it.",
+  "In the first half of 2025, nearly 78,000 tech job losses were directly attributed to AI. Most of the workers affected were in entry-level roles — the same roles that used to be how you learned an industry. We're not ignoring that.",
   "Good Companion exists because we believe AI should work the way a healthy ecosystem works — every part strengthening every other part, nothing extracted without something returned.",
 ];
 
