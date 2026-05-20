@@ -54,6 +54,14 @@ export default async function handler(req, res) {
       const globalCount = await incrementGlobalCount();
       const newCount = email ? await getDailyPromptCount(email) : null;
 
+      // Log to Google Sheet — fires async, never blocks response
+      logToSheet({
+        timestamp: new Date().toISOString(),
+        email: email || "anonymous",
+        userInput,
+        promptNumber: globalCount,
+      }).catch((err) => console.error("Sheet log error:", err.message));
+
       return res.status(200).json({
         result: response,
         promptCount: newCount,
@@ -74,11 +82,26 @@ export default async function handler(req, res) {
 }
 
 // ─────────────────────────────────────────────
+// GOOGLE SHEET LOGGING
+// ─────────────────────────────────────────────
+
+async function logToSheet({ timestamp, email, userInput, promptNumber }) {
+  const webhookUrl = process.env.GOOGLE_SHEET_WEBHOOK_URL;
+  if (!webhookUrl) return;
+
+  await fetch(webhookUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ timestamp, email, userInput, promptNumber }),
+  });
+}
+
+// ─────────────────────────────────────────────
 // REDIS HELPERS — DAILY PER USER
 // ─────────────────────────────────────────────
 
 function getDailyKey(email) {
-  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD UTC
+  const today = new Date().toISOString().slice(0, 10);
   const normalizedEmail = email.toLowerCase().trim();
   return `pp_daily:${normalizedEmail}:${today}`;
 }
@@ -110,12 +133,10 @@ async function incrementDailyPromptCount(email) {
 
   try {
     const redisKey = getDailyKey(email);
-    // Increment and set expiry to 48 hours to ensure cleanup
     await fetch(`${kvUrl}/incr/${redisKey}`, {
       method: "GET",
       headers: { Authorization: `Bearer ${kvToken}` },
     });
-    // Set expiry of 48 hours so keys clean themselves up
     await fetch(`${kvUrl}/expire/${redisKey}/172800`, {
       method: "GET",
       headers: { Authorization: `Bearer ${kvToken}` },
